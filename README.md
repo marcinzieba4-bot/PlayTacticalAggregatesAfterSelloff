@@ -63,6 +63,40 @@ Reproduce: `python scripts/macd_only_study.py && python scripts/macd_only_charts
 
 ---
 
+## Weekly-MACD strategy: 1 % stop with re-entry, 1 % ladder / martingale, take-profit grid
+
+These tests start from the MACD-only strategy above: a new up-phase signal, the MACD < 0 stop, max 3 assets with 1/3 of equity each, and compounding. Scripts: `scripts/macd_variants_study.py` and `strategy/macd_engine.py`; results in `results/macd_variants/`.
+
+* **1 % stop + re-entry at the first entry point:** stop 1 % below the first entry price E0. After a stop-out, re-enter on a buy-stop at E0, any number of times while the MACD trend lasts. The size is the same each time. 2 %, 3 % and 5 % stops were also tested.
+* **1 % ladder / martingale:** buy more every 1 % below E0. Martingale sizes are 1, 2, 4, 8, 16, 32 (5 steps); flat sizes are 1 unit per step (10 steps). The full ladder is sized to the slot's 1/3 of equity, so there is no leverage. The only stop is MACD < 0, as usual.
+* **Take-profit grid:** time of 3 months / 6 months / 1 year / 2 years / none × level of +5 / +10 / +20 / +30 % / none. The level is measured from E0, or from the average cost for the ladder.
+
+| Take-profit 1 year, no level | Campaigns | Win % | Avg campaign | Stop-outs per campaign | CAGR (in / out of sample) | Max DD | Sharpe | Invested |
+|---|---|---|---|---|---|---|---|---|
+| **Base (no price stop)** | 133 | 48 % | +7.8 % | – | **8.5 %** (7.4 / 10.3) | **−26 %** | **0.79** | 69 % |
+| 1 % stop, re-entry at E0 | 133 | 43 % | +7.0 % | 2.9 (max 14) | 7.7 % (6.8 / 9.2) | −28 % | 0.77 | 63 % |
+| 2 % / 3 % / 5 % stop, re-entry at E0 | 133 | 43-45 % | +6.8 to +7.3 % | 1.7 / 1.1 / 0.5 | 7.3 / 7.5 / 8.0 % | −30 to −33 % | 0.73-0.76 | 65-67 % |
+| Martingale ladder ×2, 1 % step, 5 steps | 133 | 62 % | +1.9 % | – | 2.1 % | −19 % | 0.43 | 19 % |
+| Martingale ladder ×2, 7 steps | 133 | 67 % | +1.0 % | – | 1.2 % | −16 % | 0.32 | 11 % |
+| Flat ladder, 1 % step, 10 steps | 133 | 56 % | +2.3 % | – | 2.6 % | −13 % | 0.55 | 22 % |
+
+![variants](results/macd_variants/macd_variants.png)
+
+**What to take from it**
+
+1. **The 1 % stop with re-entry doesn't help.** In a weekly uptrend a 1 % stop is just daily noise. You get stopped about 3 times per campaign (up to 14 times: XLI 2023, CAC 2025-26) and buy back at the same price. That costs about 0.8 %/yr of CAGR with no drawdown benefit (−28 % vs −26 %). Wider stops move steadily back toward the base result (5 % stop: 8.0 %), which shows the extra stop has no edge.
+2. **The ladder / martingale doesn't help either.** With no leverage it leaves most of the money idle: 11-22 % invested on average, versus 69 % for the base. Return per unit invested is about the same (11-12 % vs 12.2 %), so buying lower adds nothing. The ×2 martingale has the worst Sharpe (0.32-0.43): its biggest buys land in the pullbacks that turn into the MACD < 0 exit. Levering it up to the base's exposure would give a worse result than the base.
+3. **Take-profit:**
+   * **Time:** longer means more return but a deeper drawdown. No time exit gives 9.4 % CAGR at −33 %; 2 years gives 9.1 % at −29 %. **1 year is the Sharpe sweet spot (0.79).**
+   * **Level:** a tight target kills the edge, because the winners are what pay for the many small MACD stop losses. +5 % gives 3.6 % CAGR and Sharpe 0.50; +10 % gives 5.7 %. +30 % is about neutral. **No level target is best.**
+   * Lowest drawdown with a decent Sharpe: 6 months / +20 % gives 6.9 % CAGR, −22 % DD, Sharpe 0.75.
+   * The top Sharpe cells for the 1 % stop variant (0.80 at 6 m / +20 % and 2 y / +30 %) only tie the base, and the first one is unstable: 4.2 % in-sample vs 9.6 % out-of-sample.
+4. **Bottom line:** keep the plain rules. Buy the new MACD up-phase, use no price stop, exit when MACD < 0 or after 1 year, with no level target. If you want a smaller drawdown, use 6 months / +20 % and accept about 1.6 %/yr less return. Neither the 1 % stop nor the martingale ladder improves anything.
+
+Reproduce: `python scripts/macd_variants_study.py && python scripts/macd_variants_charts.py`.
+
+---
+
 ## (First reading of the MACD idea) DeMark 9 only in an uptrend: weekly MACD filter, MACD stop, 1-year exit, max 3 assets
 
 Rules (`scripts/macd_study.py`, results in `results/macd/`):
@@ -404,7 +438,10 @@ scripts/
   macd_charts.py   its chart
   macd_only_study.py  weekly MACD as the only signal, MACD < 0 stop, 1-year exit, max 3 assets -> results/macd_only/
   macd_only_charts.py its chart
+  macd_variants_study.py  1 % stop + re-entry, 1 % ladder / martingale, take-profit grid -> results/macd_variants/
+  macd_variants_charts.py its chart
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
+strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder, time + level TP)
 tests/test_engine.py
 results/        many-campaigns run: summary.json, equity_*.csv, trades_*.csv, risk/concurrency tables, live state, charts
 results/one_campaign/   the same outputs under the one-campaign-at-a-time rule (+ priority_*.csv tie-break test)

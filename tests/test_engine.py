@@ -117,3 +117,28 @@ def test_grid_starting_size_and_flat_at_target():
     O2, H2, L2, C2 = (list(map(float, x)) for x in zip(*([(0, 0, 0, 0)] + [(100, 100, 80, 80), (80, 81, 60, 60)])))
     r2 = simulate_grid(O2, H2, L2, C2, 0, T, step, 1000.0, cost_bps=0.0)
     assert r2["status"] == "open" and r2["pnl"] < 0 and r2["max_units"] >= j0 + 45
+
+
+def _bars(rows):
+    O, H, L, C = (np.asarray(list(map(float, x))) for x in zip(*rows))
+    n = len(C)
+    return {"O": O, "H": H, "L": L, "C": C, "dates": np.datetime64("2020-01-01") + np.arange(n),
+            "macd": np.ones(n), "wk_close": np.zeros(n, bool)}
+
+
+def test_macd_engine_sl_reentry_and_level_tp():
+    from strategy.macd_engine import simulate_campaign
+    x = _bars([(100, 100.5, 98.5, 99), (99, 100.2, 98, 100), (100, 111, 99.5, 110)])
+    r = simulate_campaign(x, 0, mode="sl_reentry", tp_days=None, tp_level=0.10, sl=0.01, cost=0.0)
+    assert r["stops"] == 1 and r["reason"] == "level TP" and r["end"] == 2
+    assert r["ret"] == pytest.approx(-0.01 + 0.10, abs=1e-9)      # -1 % stop, then +10 % from E0
+
+
+def test_macd_engine_ladder_martingale_and_macd_stop():
+    from strategy.macd_engine import simulate_campaign
+    x = _bars([(100, 100, 97.5, 98), (98, 98, 96, 97), (95, 96, 94, 95)])
+    x["wk_close"][1] = True
+    x["macd"][1] = -0.5                                             # MACD < 0 at bar 1's weekly close
+    r = simulate_campaign(x, 0, mode="ladder", tp_days=None, tp_level=None, step=0.01, K=5, sizing="mart", cost=0.0)
+    assert r["reason"] == "MACD < 0" and r["end"] == 2
+    assert r["fills"] == 5                                          # 100, 99, 98.01, 97.03, 96.06
