@@ -13,6 +13,55 @@ Data runs from 1990-01 to 2026-11-03 (Yahoo Finance daily OHLC). The in-sample p
 
 ---
 
+## Averaging-down grid with no stop-loss, exit at a 30 % retracement, max 3 assets
+
+Rules (`scripts/grid_study.py`, results in `results/grid/`):
+
+* **Target T:** the sell-off low + **30 %** × (old high − low). This is the 30 % retracement of the drop.
+  * Old high = highest high of the 52 weeks (weekly) or 63 days (daily) before the 9.
+  * Low = lowest low between that high and the 9.
+  * 26-week and 252-day highs, and a 50 % retracement, were also tested.
+* **Grid:** a level every **1 %** below T (2 % also tested). Hold *n* units: the next sell is 1 % higher and the next buy 1 % lower.
+* **No stop-loss.** Each 1 % fall buys 1 unit. Each 1 % rise sells 1 unit, the last one bought.
+* **Starting size:** at the 9 (next open) buy *j₀* units, where *j₀* is the number of 1 % steps from the entry up to T. Selling one unit per 1 % up-step then reaches **0 exactly at the 30 % retracement**, where the campaign ends. On average weekly starts with 5.6 units and daily with 2.2.
+* **Unit:** 1 % of capital ($1,000 notional on $100k, fixed, no compounding). Costs are 3 bps per fill.
+* **Max 3 assets at once.** First come, first served; same-day ties go to the deepest sell-off. A new 9 on an asset already in a campaign is ignored.
+
+| Unit = 1 % of capital, step 1 %, 30 % retracement | Weekly 9 (52-week high) | Daily 9 (63-day high) |
+|---|---|---|
+| Campaigns 1990-2026 | 96 | 284 |
+| Reached the 30 % retracement (position 0) | **99 %**. Every completed campaign is profitable. | **99 %** (98 % of them profitable) |
+| Median / longest campaign | 14 days / **15.5 years** (FTSE MIB 2008 → 2024) | 6 days / **33 years** (Nikkei 1990 → 2023) |
+| Most units held in one campaign | 140 (XLK Nov 2000 → Jul 2014) | 148 (Nikkei) |
+| Worst open (unrealised) loss in one campaign | **−$48.6k** (XLK 2002) | **−$43.7k** (Nikkei) |
+| Peak long exposure | 1.8× capital | 1.9× capital |
+| PnL per year (% of capital) | 4.7 % | 5.0 % |
+| **Max drawdown** | **−70 %** (Jan 2001 → Oct 2002) | **−85 %** (Oct 2007 → Mar 2009) |
+| Sharpe | 0.31 | 0.28 |
+| Unit size for a 25 % max drawdown → PnL/yr | $358 → 1.7 %/yr | $296 → 1.5 %/yr |
+| Open now | Hang Seng (9 of 2026-10-23): 5 units from 23,157, target 24,179 | CAC 40 (target 8,535), ASX 200 (9,029), XLC (106.52) |
+
+![grid](results/grid/equity_grid.png)
+
+**What to take from it**
+
+1. **It almost never loses a campaign, and that is the catch.** 99 % of campaigns end at the 30 % retracement in profit. But a few campaigns in long bear markets sit underwater for 10–30 years while the position keeps growing (Nasdaq 2001 → 2012, XLK 2000 → 2014, FTSE MIB 2008 → 2024, Nikkei 1990 → 2023). They eventually close in profit, and they are where most of the PnL comes from. Along the way the account falls 70–85 % and uses up to 1.9× leverage.
+2. **The 3-asset cap does not protect you.** In 2000-02 and 2008 the three slots fill with the first three sell-offs and stay stuck for years. There is no stop, so nothing frees them.
+3. **A wider step is better.** 2 % steps hold half the units for the same campaign, which roughly halves the drawdown (weekly −32 %, daily −40 %) and lifts Sharpe to 0.34–0.36. A 50 % retracement makes slightly more but campaigns last longer and drawdowns are deeper.
+4. **Risk-adjusted it is the weakest design so far.**
+   * This grid: Sharpe 0.28–0.36.
+   * Earlier time-stop designs: Sharpe 0.55–0.79.
+   * Equal-weight buy & hold: Sharpe 0.68.
+   * At the same 25 % max drawdown, this grid makes about 1.5–1.7 %/yr. The weekly 1,2,3-sizing time-stop design makes about 4.8 %/yr and daily 1 re-entry at 2× about 4.2 %/yr.
+5. **If you still want to run it:**
+   * Use 2 % steps and a unit of no more than 0.35–0.6 % of capital, which keeps the historical drawdown near 25 %.
+   * Accept that a campaign can tie up a slot for a decade.
+   * The grid only works if you can keep adding while down 50 %+, so check margin and funding.
+
+Reproduce: `python scripts/grid_study.py && python scripts/grid_charts.py`.
+
+---
+
 ## Martingale until the old high (no time stop)
 
 The question: keep going in above the 9-candle high and out below its low, making each new attempt bigger, until price gets back to the **old high**. Near the old high the position goes to 0 and the campaign ends. Rules as simulated:
@@ -257,6 +306,9 @@ scripts/
   make_charts.py   PNG charts
   oldhigh_study.py martingale-until-the-old-high study (no time stop) -> results/oldhigh/
   oldhigh_charts.py its equity chart
+  grid_study.py    averaging-down grid, no stop, exit at 30 % retracement, max 3 assets -> results/grid/
+  grid_charts.py   its chart
+strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 tests/test_engine.py
 results/        many-campaigns run: summary.json, equity_*.csv, trades_*.csv, risk/concurrency tables, live state, charts
 results/one_campaign/   the same outputs under the one-campaign-at-a-time rule (+ priority_*.csv tie-break test)

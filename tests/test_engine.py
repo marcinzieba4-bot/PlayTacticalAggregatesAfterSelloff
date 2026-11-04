@@ -97,3 +97,23 @@ def test_oldhigh_target_no_time_stop_and_reanchor():
     # already at the old high -> nothing to play
     atts, _, status = simulate_sequence(O, H, L, C, 0, 110.0, 100.0, 10.0, 120.0, set(), p, old_high=104.0)
     assert atts == [] and status == "at_high"
+
+
+def test_grid_starting_size_and_flat_at_target():
+    from strategy.grid import grid_levels_needed, simulate_grid
+    T, step = 110.0, 0.01
+    j0 = grid_levels_needed(100.0, T, step)
+    assert T * 0.99 ** j0 <= 100.0 < T * 0.99 ** (j0 - 1)      # 10 steps of 1% from 100 to 110
+    O, H, L, C = (list(map(float, x)) for x in zip(*([(0, 0, 0, 0)] + [
+        (100, 100.5, 97, 98),    # entry 100: j0 units, then 2-3 more bought on the way to 97
+        (98, 104, 97.5, 103),    # sells on the way up
+        (103, 112, 102, 111),    # reaches 110 -> position 0
+    ])))
+    r = simulate_grid(O, H, L, C, 0, T, step, 1000.0, cost_bps=0.0)
+    assert r["status"] == "target" and r["j0"] == j0 and r["end"] == 3
+    assert r["max_units"] > j0 and r["qty"][-1] == pytest.approx(0.0, abs=1e-9)
+    assert r["pnl"] > 0
+    # never reaching the target -> campaign stays open, losses are unrealised
+    O2, H2, L2, C2 = (list(map(float, x)) for x in zip(*([(0, 0, 0, 0)] + [(100, 100, 80, 80), (80, 81, 60, 60)])))
+    r2 = simulate_grid(O2, H2, L2, C2, 0, T, step, 1000.0, cost_bps=0.0)
+    assert r2["status"] == "open" and r2["pnl"] < 0 and r2["max_units"] >= j0 + 45
