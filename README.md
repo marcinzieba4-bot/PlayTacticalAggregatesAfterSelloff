@@ -122,7 +122,7 @@ Scripts: `scripts/worst_short_study.py` and `scripts/worst_short_charts.py`; res
 | Short only the single worst / the 5 worst | 161 / 389 | 39 / 33 % | | −4.8 / −3.9 % | −88 / −81 % | −0.14 / −0.25 |
 | *Long the 3 best profiles (mirror image, depth_vol)* | 269 | 55 % | +4.4 % | 9.4 % (8.6 / 10.6) | −40 % | 0.68 |
 | *Contrarian: BUY the 3 worst profiles, sell when MACD > 0* | 214-340 | **66-72 %** | +1.0 to +2.0 % | 2.2-3.0 % | −61 to −72 % | 0.21-0.26 |
-| *Long: new MACD up-phase, max 3 (earlier rules)* | 125 | 48 % | +7.8 % | **8.4 %** | **−24 %** | **0.80** |
+| *Long: new MACD up-phase, max 3 (earlier rules)* | 133 | 48 % | +7.8 % | **8.4 %** | **−24 %** | **0.80** |
 | Earlier long + 50 % worst-short overlay | – | – | – | 6.8 % | −21.5 % | 0.64 |
 | Earlier long + 100 % worst-short overlay | – | – | – | 4.6 % | −34.5 % | 0.37 |
 | 50 / 50 earlier long + worst short | – | – | – | 2.6 % | −17.7 % | 0.37 |
