@@ -4,3 +4,4 @@ __pycache__/
 data/raw/
 results/grid_*.csv.gz
 data/us100/raw/
+data/sp500_pit/raw/

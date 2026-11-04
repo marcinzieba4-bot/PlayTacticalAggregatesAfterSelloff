@@ -97,6 +97,79 @@ Reproduce: `python scripts/macd_variants_study.py && python scripts/macd_variant
 
 ---
 
+## US stocks without survivorship bias: point-in-time S&P 500 membership
+
+Scripts: `scripts/sp500_pit_data.py`, `scripts/sp500_pit_fix.py` and `scripts/sp500_pit_study.py`; results in `results/sp500_pit/`.
+
+* **Membership:** daily S&P 500 constituents since 1996 from [fja05680/sp500](https://github.com/fja05680/sp500), based on Andreas Clenow's list. 1,209 tickers have ever been members.
+* **Size ranking:** each month the **100 largest members by trailing 1-year average dollar volume** form the tradable list. Historical market caps aren't freely available, so dollar volume stands in for size. A MACD signal counts only if the stock is on that month's list.
+* **Same rules as before:** MACD < 0 stop, 1-year exit, 1/N of equity per position, cash-capped. A stock whose price history ends mid-trade (delisted or acquired) is closed at its last price.
+* **Remaining bias:** Yahoo only keeps listed stocks. With renames mapped (FB→META, ANTM→ELV, UTX→RTX, BK→BNY, MMC→MRSH, …), 785 of 1,209 tickers have data. Member coverage is 38 % in 1996, 47 % in 2000, 61 % in 2008, 74 % in 2015 and 98 % in 2026. The missing names are mostly bankruptcies and takeovers (Lehman, WorldCom, Enron, Bear Stearns, Wachovia, Time Warner, …), so these results are **still somewhat too optimistic**, especially before 2010. Fully clean data needs a paid source (Norgate, CRSP, EOD Data).
+
+| 1997-2026, compounded | **Point-in-time top 100**: CAGR | Max DD | Sharpe | *Today's top 100 (biased)*: CAGR | Max DD |
+|---|---|---|---|---|---|
+| MACD signal, max 3 (asked rules) | **8.7 %** (IS 7.4 / OOS 9.9) | −54 % | 0.47 | *20.8 %* | *−75 %* |
+| MACD signal, max 10 | 6.8 % | −46 % | 0.47 | *19.3 %* | *−53 %* |
+| MACD signal, max 20 | 8.3 % | −43 % | 0.59 | *18.2 %* | *−41 %* |
+| 1 % stop + re-entry, max 3 | 9.1 % | −46 % | 0.53 | *24.5 %* | *−51 %* |
+| 1 % stop + re-entry, max 10 | 6.8 % | −45 % | 0.53 | *20.8 %* | *−39 %* |
+| **1 % stop + re-entry, max 20** | 8.0 % | **−36 %** | **0.67** | – | – |
+| Pyramid up 1 %, 5 adds, max 3 / max 10 | 8.2 % / 6.5 % | −51 % / −43 % | 0.47 | – | – |
+| Martingale ladder ×2, max 3 / max 10 | 3.9 % / 3.1 % | −42 % / −35 % | 0.30 | – | – |
+| Max 3, random pick among same-day signals (20 draws) | 5.0 % (2.0-10.1) | −63 % | 0.33 | – | – |
+| *Equal-weight buy & hold of the point-in-time top 100* | **12.8 %** | −58 % | **0.67** | *20.3 % (today's 100)* | *−47 %* |
+| *S&P 500 total return* | **10.1 %** | −55 % | 0.60 | | |
+
+![pit](results/sp500_pit/equity_pit.png)
+
+**What to take from it**
+
+1. **Survivorship bias explained almost all of the earlier stock result.** Picking from stocks that were really in the S&P 500 at the time, the 3-stock MACD strategy drops from **20.8 % to 8.7 %/yr** over the same 1997-2026 window. Even that is still flattered by the missing bankruptcies.
+2. **On US large caps the MACD strategy does not beat buy & hold.** It made 7-9 %/yr, against 10.1 % for the S&P 500 and 12.8 % for an equal-weight top 100. The 3-stock version is also luck-dependent: a random pick among same-day signals gives 2-10 %/yr.
+3. **The only redeeming setup is 20 stocks with the 1 % stop + re-entry.** It makes 8.0 %/yr with a **−36 %** max drawdown (vs −55 % for the S&P 500) and Sharpe 0.67, about the same as the equal-weight index. That is a risk-reduction tool, not an alpha source.
+4. **Ladder / martingale remains the worst** (3-4 %/yr), and pyramiding is neutral. Same as on indices.
+5. **Practical conclusion:** the weekly-MACD idea works better on diversified indices and sectors (8.4 %/yr, −24 % DD, Sharpe 0.80) than on single stocks. On stocks it mostly cuts the drawdown and gives up return.
+
+---
+
+## Short leg: shorting DM indices when the weekly MACD turns below zero
+
+Scripts: `scripts/macd_short_study.py`, chart `scripts/pit_short_charts.py`; results in `results/macd_short/`. This mirrors the long strategy on the 16 DM indices:
+
+* **Short** at the next open when the weekly MACD and signal both turn below 0.
+* **Cover** when the weekly MACD goes back above 0, or after 1 year. Tested with and without a **1 % stop above the entry plus re-entry**: re-short when price falls back to the entry.
+* **Max 3 shorts**, 1/3 of equity each.
+* Shorts are simulated with the long engine on prices mirrored around the entry. This is exact per unit and cross-checked against hand calculations. Index futures carry is not modelled.
+
+| 1990-2026, 16 DM indices, max 3 | Trades | Win % | CAGR (in / out of sample) | Max DD | Sharpe |
+|---|---|---|---|---|---|
+| **Short leg, MACD stop, 1 year** | 135 | 23 % | **−3.2 %** (−0.8 / −7.1) | **−76 %** | −0.24 |
+| Short leg + 1 % stop & re-entry | 135 | 17 % | −0.4 % (+1.4 / −3.3) | −51 % | 0.00 |
+| Short + 1 % stop & re-entry, target −20 %, 1 year (best cell) | 147 | 23 % | +0.5 % (+2.5 / −2.7) | −42 % | 0.10 |
+| Short leg on all 27 (indices + sectors) | 156 | 24 % | −2.9 % | −72 % | −0.18 |
+| *Long leg, same 16 DM indices, MACD stop* | 125 | 46 % | **6.9 %** | −23 % | 0.71 |
+| *Long leg + 1 % stop & re-entry* | 125 | 41 % | 6.9 % | −20 % | **0.76** |
+| 50 / 50 long + short (both with 1 % stop) | – | – | 3.4 % | −15 % | 0.59 |
+| Long 100 % + short overlay 100 % (both with 1 % stop) | – | – | 6.6 % | −29 % | 0.59 |
+| *Equal-weight DM indices buy & hold* | – | – | 8.6 % | −55 % | 0.61 |
+
+![short](results/macd_short/equity_short.png)
+
+**What to take from it**
+
+1. **The short leg loses money over time.** It does pay in real bear markets: +30 % in 2002, +41 % in 2008, +6-8 % in 2000-01 and 2011. But most MACD < 0 phases are just corrections inside a rising market. 89 % of shorts are stopped by the MACD turning back up, at about −5 % each.
+2. **Rebounds are brutal for a slow weekly signal.** The worst shorts were opened right at the lows: Russell 2000 at the March 2020 bottom lost −47 %, and FTSE 100 in March 2020 lost −22 %. 2020 alone cost the short book −30 %.
+3. **The 1 % stop & re-entry halves the damage** (−0.4 %/yr instead of −3.2 %, DD −51 % instead of −76 %) **but does not make it profitable.** Out-of-sample (2013-2026) every short variant lost money.
+4. **Adding the short leg makes the long strategy worse.** The legs are negatively correlated (−0.16 to −0.25). 50/50 cuts the drawdown to −15 % but also cuts return to 3.4 % (Sharpe 0.59 vs 0.76 long-only). Long + short overlay is 6.6 %/yr with Sharpe 0.59.
+5. **If you want downside protection,** the long leg's own MACD exit already moves you to cash in bear markets. A short leg on a slow weekly signal is not worth carrying. If anything, use it only as a small hedge with the 1 % stop.
+
+**Short book live now (2026-11-03):**
+* Short **Hang Seng** since 2026-06-22: +1.2 %, or −0.9 % with the 1 % stop after 2 stop-outs.
+* Short **CAC 40** since 2026-10-26: −2.6 %; with the 1 % stop it is flat, waiting to re-short at the entry.
+* These are the only two DM indices with both weekly MACD lines below 0. These are backtest model states, not investment advice.
+
+---
+
 ## The same MACD tests on the 100 biggest US stocks
 
 Universe (`scripts/us100_universe.py`): today's 100 largest S&P 500 companies by market cap (Yahoo Finance, Nov 2026), one share class each, from Apple ($5.1tn) to #100 at $123bn. Daily data is dividend- and split-adjusted, from 1990 or the listing date. Rules are the same as the index study: buy at the next open when the weekly MACD and signal both turn > 0, exit on MACD < 0 or after 1 year, 1/N of equity per position, no leverage. Script: `scripts/us100_study.py`; results in `results/us100/`.
@@ -521,6 +594,10 @@ scripts/
   macd_pyramid_charts.py  its chart
   us100_universe.py / us100_data.py / us100_study.py / us100_charts.py
                    the same MACD tests on the 100 biggest US stocks -> data/us100/, results/us100/
+  sp500_pit_data.py / sp500_pit_fix.py / sp500_pit_study.py
+                   point-in-time S&P 500 top 100 (less survivorship bias) -> data/sp500_pit/, results/sp500_pit/
+  macd_short_study.py  short leg on DM indices (MACD < 0), combined long/short -> results/macd_short/
+  pit_short_charts.py  charts for both
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py
