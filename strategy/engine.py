@@ -22,17 +22,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 
-MAX_ATTEMPTS = 6  # initial entry + 5 re-entries
+MAX_ATTEMPTS = 6  # initial entry + 5 re-entries (default)
+NO_LIMIT = 10 ** 9  # "no stopping": no time stop / no re-entry window
 
 
 @dataclass(frozen=True)
 class PathParams:
     entry_mode: str = "next_open"   # "next_open" | "break_high"
     buf: float = 0.0                # buffer (x ATR of the signal timeframe) beyond high/low
-    target: str = "R2"              # "R1.5" | "R2" | "R3" | "tdst" | "none"
+    target: str = "R2"              # "R1.5" | "R2" | "R3" | "tdst" | "none" | "oldhigh"
     time_stop: int = 65             # max trading days in a position
     window: int = 65                # max trading days after signal to allow (re-)entries
     cost_bps: float = 3.0           # per side, commission + slippage, on notional
+    max_attempts: int = MAX_ATTEMPTS  # initial entry + re-entries
+    near: float = 0.0               # target "oldhigh": exit this many ATR below the old high
+    old_high_col: str = "old_high"  # which old-high column of the signal to use
+    on_new9: str = "supersede"      # new 9 on the same instrument while flat:
+                                    #   "supersede" ends the campaign, "continue" ignores it,
+                                    #   "reanchor" keeps the campaign (size progression and
+                                    #   old-high target) but moves stop/re-entry to the new 9-candle
 
     def key(self):
         return tuple(asdict(self).values())
@@ -47,10 +55,16 @@ def _target_price(target: str, entry: float, stop: float, tdst: float):
     return entry + k * (entry - stop)
 
 
-def simulate_sequence(O, H, L, C, s0, sig_high, sig_low, sig_atr, tdst, kill_set, p: PathParams):
+def simulate_sequence(O, H, L, C, s0, sig_high, sig_low, sig_atr, tdst, kill_set, p: PathParams,
+                      old_high=None, reanchor=None):
     """Simulate one signal. `s0` = daily index of the bar whose close completes the signal.
     `kill_set` = daily indices of later buy-setup-9s on this instrument; a new setup
     that completes while this sequence is flat (waiting to re-enter) replaces it.
+
+    `old_high` (target "oldhigh"): the pre-sell-off high; the campaign is flattened and ends
+    when price reaches old_high - near*ATR. If that level is already at/below an entry price
+    the campaign ends without the trade ("at_high"). `reanchor`: {daily index: (high, low, atr)}
+    of later 9s, used when p.on_new9 == "reanchor".
 
     Returns (attempts, natural_end_pos, status) with attempts a list of dicts.
     """
@@ -63,22 +77,28 @@ def simulate_sequence(O, H, L, C, s0, sig_high, sig_low, sig_atr, tdst, kill_set
     entry_px = entry_pos = T = None
     dist = None
 
+    T_hi = (old_high - p.near * sig_atr) if (p.target == "oldhigh" and old_high is not None) else None
+
     def open_pos(i, px, planned):
         nonlocal state, entry_px, entry_pos, T, dist
+        if T_hi is not None and px >= T_hi:  # already at the old high: nothing left to play
+            state = "AT_HIGH"
+            return
         state = "LONG"
         entry_px, entry_pos = px, i
         # size is fixed from the *planned* entry (gap fills cost extra); never size off a
         # stop tighter than 0.1 ATR (protects against degenerate candles / opens at the stop)
         dist = max(planned - S, 0.1 * sig_atr)
-        T = _target_price(p.target, px, S, tdst)
+        T = (old_high - p.near * sig_atr) if p.target == "oldhigh" else _target_price(p.target, px, S, tdst)
 
     def close_pos(i, px, reason):
         nonlocal state
         r = (px - entry_px - cost * (px + entry_px)) / dist
         attempts.append({"k": len(attempts), "entry_pos": entry_pos, "entry_px": entry_px,
-                         "exit_pos": i, "exit_px": px, "reason": reason, "dist": dist, "R": r})
+                         "exit_pos": i, "exit_px": px, "reason": reason, "dist": dist, "R": r,
+                         "stop_px": S, "target_px": T})
         if reason == "stop":
-            state = "WAIT" if len(attempts) < MAX_ATTEMPTS else "DONE"
+            state = "WAIT" if len(attempts) < p.max_attempts else "DONE"
         else:
             state = "DONE"
 
@@ -120,7 +140,13 @@ def simulate_sequence(O, H, L, C, s0, sig_high, sig_low, sig_atr, tdst, kill_set
             if i - s0 >= p.window:
                 return attempts, i, "expired"
             if i in kill_set:
-                return attempts, i, "superseded"
+                if p.on_new9 == "supersede":
+                    return attempts, i, "superseded"
+                if p.on_new9 == "reanchor" and reanchor and i in reanchor:
+                    nh, nl, na = reanchor[i]
+                    E, S = nh + p.buf * na, nl - p.buf * na
+        if state == "AT_HIGH":
+            return attempts, i, "at_high"
         if state == "DONE":
             return attempts, i, "done"
         i += 1

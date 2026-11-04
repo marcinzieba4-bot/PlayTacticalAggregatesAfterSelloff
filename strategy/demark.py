@@ -70,6 +70,10 @@ def buy_setup_signals(df: pd.DataFrame, dd_lookback: int) -> pd.DataFrame:
             "perfected": bool(perfected),
             "tdst": H[b(1):i + 1].max(),
             "drawdown": dd.iloc[i],
+            # pre-sell-off peak ("old high"): highest high of the lookback ending at bar 9
+            "old_high": H[max(0, i - dd_lookback + 1):i + 1].max(),
+            "old_high_short": H[max(0, i - dd_lookback // 2 + 1):i + 1].max() if dd_lookback < 100
+            else H[max(0, i - 62):i + 1].max(),
             "setup_decline": C[i] / C[b(1) - 1] - 1.0,
         })
     return pd.DataFrame(rows)

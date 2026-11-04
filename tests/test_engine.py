@@ -73,3 +73,27 @@ def test_one_campaign_at_a_time():
     assert sel["ticker"].tolist() == ["A", "D"]
     sel = select_one_campaign(seqs, 5, "shallowest_dd")
     assert sel["ticker"].tolist() == ["A", "C"]
+
+
+def test_oldhigh_target_no_time_stop_and_reanchor():
+    from strategy.engine import NO_LIMIT
+    p = PathParams(entry_mode="next_open", buf=0.0, target="oldhigh", time_stop=NO_LIMIT, window=NO_LIMIT,
+                   cost_bps=0.0, max_attempts=11, near=0.0, on_new9="continue")
+    O, H, L, C = (list(map(float, x)) for x in zip(*([(0, 0, 0, 0)] + [
+        (105, 106, 99, 100),     # 1: enter 105, stopped at 100
+        (100, 104, 90, 92),      # 2: flat, keeps falling
+        (92, 95, 88, 94),        # 3
+        (94, 111, 93, 110),      # 4: re-entry above 110 (attempt 2)
+        (110, 140, 109, 135),    # 5: reaches old high 130 -> flat, campaign ends
+    ])))
+    atts, end, status = simulate_sequence(O, H, L, C, 0, 110.0, 100.0, 10.0, 120.0, set(), p, old_high=130.0)
+    assert [a["reason"] for a in atts] == ["stop", "target"] and atts[-1]["exit_px"] == 130.0
+    assert status == "done" and end == 5
+    # re-anchor: a new 9 on day 3 (high 96, low 88) moves the re-entry trigger down to 96
+    p2 = PathParams(**{**p.__dict__, "on_new9": "reanchor"})
+    atts, _, _ = simulate_sequence(O, H, L, C, 0, 110.0, 100.0, 10.0, 120.0, {3}, p2, old_high=130.0,
+                                   reanchor={3: (96.0, 88.0, 10.0)})
+    assert atts[1]["entry_px"] == 96.0 and atts[1]["reason"] == "target"
+    # already at the old high -> nothing to play
+    atts, _, status = simulate_sequence(O, H, L, C, 0, 110.0, 100.0, 10.0, 120.0, set(), p, old_high=104.0)
+    assert atts == [] and status == "at_high"

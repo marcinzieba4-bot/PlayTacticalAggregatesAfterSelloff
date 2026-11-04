@@ -12,11 +12,12 @@ from .engine import MAX_ATTEMPTS, PathParams, simulate_sequence
 from .universe import UNIVERSE
 
 # size multiplier of attempt k (k=0 initial entry, k=1..5 re-entries), in units of base risk
+_K = 11  # enough for up to 10 re-entries
 SIZE_SCHEMES = {
-    "flat":   [1, 1, 1, 1, 1, 1],
-    "linear": [1, 2, 3, 4, 5, 6],
-    "geo1.5": [1.5 ** k for k in range(MAX_ATTEMPTS)],
-    "geo2":   [2.0 ** k for k in range(MAX_ATTEMPTS)],   # martingale
+    "flat":   [1.0] * _K,
+    "linear": [float(k + 1) for k in range(_K)],
+    "geo1.5": [1.5 ** k for k in range(_K)],
+    "geo2":   [2.0 ** k for k in range(_K)],   # martingale
 }
 
 SPLIT_DATE = pd.Timestamp("2013-01-01")  # in-sample < split <= out-of-sample
@@ -82,10 +83,13 @@ def random_signals(prep: dict, min_dd: float, perfected: bool, dd_lookback: int,
         pick = np.sort(rng.choice(cand, size=min(n, len(cand)), replace=False))
         a = _atr(b).to_numpy()
         tdst = b["High"].rolling(9).max().to_numpy()
+        oh = b["High"].rolling(dd_lookback, min_periods=1).max().to_numpy()
+        oh_s = b["High"].rolling(dd_lookback // 2 if dd_lookback < 100 else 63, min_periods=1).max().to_numpy()
         pos_map = pd.Series(np.arange(len(x["dates"])), index=x["dates"])
         df = pd.DataFrame({"date": b.index[pick], "high": b["High"].to_numpy()[pick], "low": b["Low"].to_numpy()[pick],
                            "close": b["Close"].to_numpy()[pick], "atr": a[pick], "tdst": tdst[pick],
-                           "drawdown": dd.to_numpy()[pick], "perfected": True})
+                           "drawdown": dd.to_numpy()[pick], "perfected": True,
+                           "old_high": oh[pick], "old_high_short": oh_s[pick]})
         df["s0"] = pos_map.reindex(df["date"]).to_numpy().astype(int)
         out[t] = df
     return out
@@ -104,18 +108,21 @@ def run_paths(prep: dict, min_dd: float, perfected: bool, p: PathParams,
         if sig.empty:
             continue
         s0s = sig["s0"].to_numpy()
+        ra_all = dict(zip(s0s.tolist(), zip(sig["high"], sig["low"], sig["atr"]))) if p.on_new9 == "reanchor" else None
+        nA = p.max_attempts
         for j, r in enumerate(sig.itertuples(index=False)):
             kill = set(s0s[j + 1:].tolist())
             atts, end, status = simulate_sequence(x["O"], x["H"], x["L"], x["C"], int(r.s0), r.high, r.low,
-                                                  r.atr, r.tdst, kill, p)
-            # end position if the sequence were capped at m re-entries (m = 0..5)
+                                                  r.atr, r.tdst, kill, p,
+                                                  old_high=getattr(r, p.old_high_col, None), reanchor=ra_all)
+            # end position if the sequence were capped at m re-entries (m = 0..nA-1)
             ends = [atts[m]["exit_pos"] if len(atts) > m and atts[m]["reason"] == "stop" else end
-                    for m in range(MAX_ATTEMPTS)]
+                    for m in range(nA)]
             seq_rows.append({"ticker": t, "sig_date": r.date, "s0": int(r.s0), "end": end, "status": status,
                              "n_att": len(atts), "drawdown": r.drawdown, "perfected": r.perfected,
                              "first_entry_date": x["dates"][atts[0]["entry_pos"]] if atts else pd.NaT,
-                             **{f"end_m{m}": ends[m] for m in range(MAX_ATTEMPTS)},
-                             **{f"end_date_m{m}": x["dates"][ends[m]] for m in range(MAX_ATTEMPTS)}})
+                             **{f"end_m{m}": ends[m] for m in range(nA)},
+                             **{f"end_date_m{m}": x["dates"][ends[m]] for m in range(nA)}})
             for a in atts:
                 a = dict(a)
                 a.update(ticker=t, sig_date=r.date, s0=int(r.s0),
