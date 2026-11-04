@@ -1,0 +1,9 @@
+timeframe,ticker,name,signal_date,signal_high,signal_low,stop_level,reentry_trigger,state,attempts_used,current_attempt_size_x,entry_px,last_close,open_R,days_since_signal
+D,^NDX,Nasdaq 100,2026-10-20,29711.53,29208.83,28984.07,29936.29,ARMED - buy-stop above signal high,0,1,,28180.26,,10
+D,^RUT,Russell 2000,2026-10-19,2742.4,2725.19,2707.63,2759.96,IN POSITION,1,1,2759.96,2812.45,0.97,11
+D,^GDAXI,DAX (Germany),2026-10-05,25324.7,25143.26,24998.33,25469.63,IN POSITION,2,2,25495.28,25864.62,0.75,21
+D,^FCHI,CAC 40 (France),2026-10-07,7840.35,7743.55,7697.64,7886.26,IN POSITION,1,1,7886.26,8020.31,0.69,19
+D,^IBEX,IBEX 35 (Spain),2026-11-03,19011.3,18744.5,18605.86,19149.94,NEW SIGNAL - buy-stop above signal high,0,1,,18807.2,,0
+D,^HSI,Hang Seng (HK),2026-10-08,24146.01,23737.14,23575.77,24307.38,STOPPED - waiting for re-entry,1,2,,23525.97,,17
+D,XLK,Technology,2026-10-20,187.05,182.81,180.94,188.92,STOPPED - waiting for re-entry,1,2,,176.51,,10
+D,XLC,Communication Services,2026-10-28,103.88,102.62,101.78,104.72,ARMED - buy-stop above signal high,0,1,,101.44,,4
