@@ -13,7 +13,58 @@ Data runs from 1990-01 to 2026-11-03 (Yahoo Finance daily OHLC). The in-sample p
 
 ---
 
-## TL;DR: the conclusions you can use
+## Rule: only ONE DeMark-9 campaign at a time
+
+A **campaign** starts at its first fill and lasts until its final exit, re-entries included. While a campaign is live, **no other 9 is played**, whichever instrument it comes from. A 9 whose first fill falls inside a live campaign is skipped completely.
+* A 9 that is armed but never fills blocks nothing.
+* If several 9s fill on the same day, the one with the **deepest sell-off** (largest drawdown from its 52-week or 252-day high) takes the slot.
+* Weekly and daily are run as two separate books, each limited to one campaign.
+
+Results are in `results/one_campaign/`. Reproduce with `MODE=one`, as shown in the Reproduce section.
+
+| Same account: $100k, 0.5 % base risk, no compounding | Weekly 9, 5 re-entries ×2 | Weekly 9, 5 re-entries linear (1,2,3…) | Weekly 9, no re-entry | **Daily 9, 1 re-entry ×2** | Daily 9, 5 re-entries linear | Daily 9, no re-entry |
+|---|---|---|---|---|---|---|
+| Campaigns (1990–2026) | 43 | 43 | 92 | 288 | 283 | 377 |
+| Campaign win rate | 53.5 % | 53.5 % | 22.8 % | 53.1 % | 53.7 % | 43.2 % |
+| Avg PnL per campaign | **+5.94 R** | +4.88 R | +0.97 R | +0.49 R | +0.46 R | +0.21 R |
+| Profit factor, in-sample → out-of-sample | 6.25 → **6.11** | 6.18 → 4.20 | 2.69 → 1.47 | 1.85 → 1.66 | 1.64 → 1.69 | 1.31 → 1.49 |
+| Total PnL | +$128k | ≈ +$105k | +$45k | +$71k | +$65k | +$39k |
+| PnL per year, % of capital | 3.5 % | 2.9 % | 1.2 % | 1.9 % | 1.8 % | 1.1 % |
+| Max drawdown (daily mark-to-market) | −24.2 % | **−14.9 %** | −10.9 % | **−11.4 %** | −12.0 % | −17.8 % |
+| Sharpe | 0.49 | **0.55** | 0.27 | **0.65** | 0.57 | 0.47 |
+| Worst campaign | −$4.3k | −$3.6k | −$1.3k | −$1.9k | −$7.0k | −$1.1k |
+| Max gross exposure | 2.3× | 1.8× | 1.7× | 1.0× | 1.0× | 0.7× |
+
+![equity one campaign](results/one_campaign/equity_curves.png)
+
+**What changes with one campaign at a time**
+
+1. **Risk falls sharply.** The same weekly ×2 martingale goes from a −72 % to a **−24 %** max drawdown, and from 6.9× to 2.3× peak leverage. Daily goes from −43 % to **−11 %**. There is never more than one instrument's risk on the book.
+2. **Profit falls too.** Only about 1.2 weekly campaigns (each ~6 months long) or ~8 daily campaigns fit per year, and average exposure is just 0.1–0.2×. So 0.5 % base risk is now very conservative. Everything scales linearly with base risk. For a ~20 % max drawdown you can risk about **0.67 %** on weekly-linear (≈3.8 %/yr) or **0.88 %** on daily one-re-entry (≈3.4 %/yr). Running **one weekly and one daily book together** gives 5.4 %/yr, −25.7 % max DD and Sharpe 0.67 at 0.5 % base risk, because the two books' daily PnL correlation is only 0.13.
+3. **Re-entries matter even more now.** With one slot, a failed first attempt would otherwise waste months of capacity.
+   * **Weekly:** the first attempt wins only 16 % of the time (+1.0R), but **re-entry #1 wins 46 % (+1.6R)**. With re-entries, average PnL per campaign rises from +0.97R to +5.9R and stays stable out-of-sample (PF 6.1).
+   * **Daily:** re-entry #1 wins 60 % (+0.67R) vs 41 % (+0.18R) on the first attempt.
+   * In practice weekly never needs more than 3 re-entries, and daily needs 1. Daily re-entry #2 loses money (−0.49R, 8 cases).
+4. **Best sizing under this rule:**
+   * **Weekly: linear (1, 2, 3…).** It has the best Sharpe (0.55) and return per unit of drawdown (0.19). ×2 makes ~20 % more profit but with 60 % more drawdown.
+   * **Daily: one re-entry at 2×.**
+5. **Which 9 gets the slot matters a lot on weekly.** Picking the **deepest** sell-off when several fire together gives +5.9R per campaign (PF 6.2). Picking the **shallowest** gives +2.4R (PF 1.7) with a 4× bigger drawdown. A random pick gives a median of +5.2R (PF 3.5, 90 % band 2.2–7.6). With only 43 campaigns, luck in which signal you take is a big part of the result. On daily the pick barely matters (0.41–0.46R).
+6. **Don't re-optimize the rules under this constraint.** There are too few campaigns.
+   * A full re-optimization picks a 40-day weekly hold (in-sample PF 4.4 → out-of-sample 2.6). On daily it picks perfected setups with a TDST target and falls from PF 1.84 to **1.05** out-of-sample.
+   * The rules chosen on the many-campaign sample (6–7× more trades) hold up: weekly PF 6.25 → 6.11, daily 1.85 → 1.66. They are used above, and only the size scheme was chosen under the rule.
+7. **The edge vs random gets harder to prove.** With so few trades, the TD9 results now fall inside the random-entry 90 % band on both timeframes:
+   * weekly +5.9R vs random 0.5–7.7R
+   * daily +0.46R vs random 0.20–0.50R
+
+**Live state under this rule** (latest close 2026-11-03):
+* **Weekly book:** the active campaign is **XLI (Industrials)**. Its 9 came on 2026-10-16. The first attempt was stopped, and re-entry #1 (2×) filled at 170.06 with a stop at 164.66. It took the slot after the XLF campaign (2026-03-16 → 2026-10-13) ended. The later weekly 9s are **skipped** under this rule: Euro Stoxx 50, IBEX, FTSE MIB, Russell 2000, CAC 40, Hang Seng, XLU and XLRE.
+* **Daily book:** no campaign is live. Armed buy-stops are Nasdaq 100 (29,936.29), IBEX (19,149.94, new 9 on 2026-11-03) and XLC (104.72). The first one to fill takes the slot. Full table: `results/one_campaign/live_sequences_{W,D}.csv`.
+
+---
+
+## Earlier version: many campaigns at once (one per instrument)
+
+### TL;DR for the many-campaigns version
 
 | | Weekly 9, 5 re-entries (geo ×2) | Weekly 9, no re-entry | Daily 9, 5 re-entries (linear) | **Daily 9, 1 re-entry ×2 (recommended)** | Equal-weight buy & hold |
 |---|---|---|---|---|---|
@@ -155,14 +206,16 @@ strategy/
   data.py       Yahoo download/cache, weekly candles
   demark.py     TD buy setup count, setup-9 signals, perfection, TDST, ATR
   engine.py     per-signal state machine: entry, stop, re-entry, target/time exit (daily path)
-  backtest.py   signal prep, path runs, sequence selection, sizing, metrics, MTM equity, placebo
+  backtest.py   signal prep, path runs, sequence selection (per instrument / one campaign at a time),
+                sizing, metrics, MTM equity, placebo
   fastagg.py    vectorized aggregation used by the optimizer
 scripts/
   optimize.py      grid search  -> results/grid_{W,D}.csv.gz (not committed, ~3.5 min)
   run_backtest.py  picks configs (in-sample), detail runs, placebo, risk tables, live state
   make_charts.py   PNG charts
 tests/test_engine.py
-results/        summary.json, equity_*.csv, trades_*.csv, risk/concurrency tables, live state, charts
+results/        many-campaigns run: summary.json, equity_*.csv, trades_*.csv, risk/concurrency tables, live state, charts
+results/one_campaign/   the same outputs under the one-campaign-at-a-time rule (+ priority_*.csv tie-break test)
 ```
 
 ## Reproduce
@@ -176,7 +229,15 @@ python scripts/optimize.py both
 ```
 
 ```bash
+MODE=one python scripts/optimize.py both
+```
+
+```bash
 python scripts/run_backtest.py && python scripts/make_charts.py
+```
+
+```bash
+MODE=one python scripts/run_backtest.py && MODE=one python scripts/make_charts.py
 ```
 
 ```bash

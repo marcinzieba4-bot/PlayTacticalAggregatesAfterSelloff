@@ -1,7 +1,8 @@
 """Grid-search the DeMark-9 stop / re-entry strategy on weekly and daily setups.
 
-Usage:  python scripts/optimize.py [W|D|both]
-Writes results/grid_<tf>.csv (one row per config x period).
+Usage:  [MODE=one] python scripts/optimize.py [W|D|both]
+Writes results/grid_<tf>.csv.gz (MODE=multi, default) or results/grid_one_<tf>.csv.gz
+(MODE=one: only one campaign at a time across all instruments); one row per config x period.
 """
 from __future__ import annotations
 
@@ -20,6 +21,8 @@ from strategy.engine import PathParams  # noqa: E402
 from strategy.fastagg import aggregate_all  # noqa: E402
 
 DATA_CUTOFF = os.environ.get("DATA_CUTOFF", "2026-11-04")  # drop the still-forming bar
+# MODE=one -> only one DeMark-9 campaign at a time across the universe (results/grid_one_<tf>.csv.gz)
+MODE = os.environ.get("MODE", "multi")
 RESULTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results")
 
 GRIDS = {
@@ -47,7 +50,7 @@ def _work(cfg):
     min_dd, perfected, entry_mode, buf, target, time_stop, window = cfg
     p = PathParams(entry_mode=entry_mode, buf=buf, target=target, time_stop=time_stop, window=window)
     atts, seqs = run_paths(_PREP, min_dd, perfected, p)
-    rows = aggregate_all(atts, seqs, Account(), _DATA_END)
+    rows = aggregate_all(atts, seqs, Account(), _DATA_END, mode=MODE)
     base = dict(min_dd=min_dd, perfected=perfected, entry_mode=entry_mode, buf=buf,
                 target=target, time_stop=time_stop, window=window)
     return [{**base, **r} for r in rows]
@@ -66,7 +69,8 @@ def run(tf):
                 print(f"  {i + 1}/{len(cfgs)}  {time.time() - t0:.0f}s", flush=True)
     df = pd.DataFrame(rows)
     os.makedirs(RESULTS, exist_ok=True)
-    df.to_csv(os.path.join(RESULTS, f"grid_{tf}.csv.gz"), index=False, compression="gzip")
+    name = f"grid_{tf}.csv.gz" if MODE == "multi" else f"grid_{MODE}_{tf}.csv.gz"
+    df.to_csv(os.path.join(RESULTS, name), index=False, compression="gzip")
     print(f"[{tf}] done: {len(df)} rows in {time.time() - t0:.0f}s")
 
 

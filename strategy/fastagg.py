@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .backtest import SIZE_SCHEMES, SPLIT_DATE, Account
+from .backtest import SIZE_SCHEMES, SPLIT_DATE, Account, select_one_campaign
 from .engine import MAX_ATTEMPTS
 
 PERIODS = {
@@ -34,7 +34,15 @@ def _select(seqs: pd.DataFrame, m: int) -> np.ndarray:
     return keep
 
 
-def aggregate_all(atts: pd.DataFrame, seqs: pd.DataFrame, acct: Account, data_end: pd.Timestamp) -> list[dict]:
+def _select_one(seqs: pd.DataFrame, m: int, priority: str) -> np.ndarray:
+    sel = select_one_campaign(seqs, m, priority)
+    keep = np.zeros(len(seqs), dtype=bool)
+    keep[sel.index.to_numpy()] = True  # seqs has a RangeIndex here
+    return keep
+
+
+def aggregate_all(atts: pd.DataFrame, seqs: pd.DataFrame, acct: Account, data_end: pd.Timestamp,
+                  mode: str = "multi", priority: str = "deepest_dd") -> list[dict]:
     out = []
     if atts.empty:
         return out
@@ -50,7 +58,7 @@ def aggregate_all(atts: pd.DataFrame, seqs: pd.DataFrame, acct: Account, data_en
     nseq = len(seqs)
 
     for m in range(MAX_ATTEMPTS):
-        keep_seq = _select(seqs, m)
+        keep_seq = _select_one(seqs, m, priority) if mode == "one" else _select(seqs, m)
         base_mask = keep_seq[sid] & (k <= m)
         for scheme, wts in SIZE_SCHEMES.items():
             if m == 0 and scheme != "flat":

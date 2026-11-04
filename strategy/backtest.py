@@ -113,7 +113,9 @@ def run_paths(prep: dict, min_dd: float, perfected: bool, p: PathParams,
                     for m in range(MAX_ATTEMPTS)]
             seq_rows.append({"ticker": t, "sig_date": r.date, "s0": int(r.s0), "end": end, "status": status,
                              "n_att": len(atts), "drawdown": r.drawdown, "perfected": r.perfected,
-                             **{f"end_m{m}": ends[m] for m in range(MAX_ATTEMPTS)}})
+                             "first_entry_date": x["dates"][atts[0]["entry_pos"]] if atts else pd.NaT,
+                             **{f"end_m{m}": ends[m] for m in range(MAX_ATTEMPTS)},
+                             **{f"end_date_m{m}": x["dates"][ends[m]] for m in range(MAX_ATTEMPTS)}})
             for a in atts:
                 a = dict(a)
                 a.update(ticker=t, sig_date=r.date, s0=int(r.s0),
@@ -136,6 +138,45 @@ def select_sequences(seqs: pd.DataFrame, m: int) -> pd.DataFrame:
                 keep.append(idx)
                 last_end = e
     return seqs.loc[keep]
+
+
+PRIORITIES = ("deepest_dd", "shallowest_dd", "random")
+
+
+def select_one_campaign(seqs: pd.DataFrame, m: int, priority: str = "deepest_dd", rng=None) -> pd.DataFrame:
+    """Portfolio rule: only ONE DeMark-9 campaign at a time across all instruments.
+
+    A campaign starts at its first fill and lasts until the sequence ends (stop-outs, flat
+    waits for re-entry and all re-entries included, capped at m re-entries). A signal whose
+    first fill happens while a campaign is live is skipped entirely. Signals that are armed
+    but never fill block nothing. When several fill on the same day, `priority` picks one:
+    the deepest sell-off (drawdown vs 52w/252d high), the shallowest, or random."""
+    s = seqs[seqs["first_entry_date"].notna()].copy()
+    if s.empty:
+        return s
+    if priority == "deepest_dd":
+        s["_p"] = s["drawdown"]
+    elif priority == "shallowest_dd":
+        s["_p"] = -s["drawdown"]
+    elif priority == "random":
+        s["_p"] = (rng or np.random.default_rng()).random(len(s))
+    else:
+        raise ValueError(priority)
+    s = s.sort_values(["first_entry_date", "_p", "ticker"], kind="mergesort")
+    keep, active_end = [], pd.Timestamp.min
+    for idx, d0, d1 in zip(s.index, s["first_entry_date"], s[f"end_date_m{m}"]):
+        if d0 > active_end:
+            keep.append(idx)
+            active_end = d1
+    return seqs.loc[keep]
+
+
+def select(seqs: pd.DataFrame, m: int, mode: str = "multi", priority: str = "deepest_dd", rng=None) -> pd.DataFrame:
+    """mode 'multi': one campaign per instrument (many instruments at once);
+    mode 'one': one campaign at a time across the whole universe."""
+    if mode == "one":
+        return select_one_campaign(seqs, m, priority, rng)
+    return select_sequences(seqs, m)
 
 
 def apply_sizing(atts: pd.DataFrame, seqs_sel: pd.DataFrame, m: int, scheme: str, acct: Account) -> pd.DataFrame:

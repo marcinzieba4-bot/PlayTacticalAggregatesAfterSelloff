@@ -55,3 +55,21 @@ def test_reentry_window_expires():
     bars = [(105, 106, 99, 100)] + [(98, 99, 97, 98)] * 5
     atts, end, status = _run(bars, p)
     assert len(atts) == 1 and status == "expired" and end == 3
+
+
+def test_one_campaign_at_a_time():
+    from strategy.backtest import select_one_campaign
+    D = pd.Timestamp
+    seqs = pd.DataFrame({
+        "ticker": ["A", "B", "C", "D", "E"],
+        "s0": [1, 1, 1, 1, 1],
+        # B fills while A is live -> skipped; C and D fill the same day after A ends -> deeper wins;
+        # E never fills -> ignored
+        "first_entry_date": [D("2020-01-02"), D("2020-01-10"), D("2020-03-02"), D("2020-03-02"), pd.NaT],
+        "end_date_m5": [D("2020-02-28"), D("2020-04-01"), D("2020-05-01"), D("2020-06-01"), D("2020-03-05")],
+        "drawdown": [-0.10, -0.20, -0.05, -0.15, -0.30],
+    })
+    sel = select_one_campaign(seqs, 5, "deepest_dd")
+    assert sel["ticker"].tolist() == ["A", "D"]
+    sel = select_one_campaign(seqs, 5, "shallowest_dd")
+    assert sel["ticker"].tolist() == ["A", "C"]

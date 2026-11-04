@@ -1,7 +1,9 @@
 """Pick the best configs from the grid (in-sample only), then simulate them in full detail:
 daily mark-to-market equity, PnL by attempt / instrument / year, benchmarks, live status.
 
-Usage:  python scripts/run_backtest.py      (after scripts/optimize.py)
+Usage:  [MODE=one] python scripts/run_backtest.py      (after scripts/optimize.py with the same MODE)
+MODE=multi (default): one campaign per instrument, many instruments at once -> results/
+MODE=one: only ONE DeMark-9 campaign at a time across the universe   -> results/one_campaign/
 """
 from __future__ import annotations
 
@@ -17,21 +19,28 @@ sys.path.insert(0, ROOT)
 
 from strategy.backtest import (SIZE_SCHEMES, SPLIT_DATE, Account, apply_sizing, buy_and_hold,  # noqa: E402
                                by_attempt, cap_concurrent, daily_equity, equity_stats, metrics, prepare,
-                               run_paths, select_sequences)
+                               run_paths, select, select_sequences)
 from strategy.engine import MAX_ATTEMPTS, simulate_sequence  # noqa: E402
 from strategy.demark import td_buy_setup_count  # noqa: E402
 from strategy.engine import PathParams  # noqa: E402
 from strategy.universe import UNIVERSE  # noqa: E402
 
-RESULTS = os.path.join(ROOT, "results")
+MODE = os.environ.get("MODE", "multi")
+GRID_DIR = os.path.join(ROOT, "results")
+RESULTS = GRID_DIR if MODE == "multi" else os.path.join(GRID_DIR, "one_campaign")
 DATA_CUTOFF = os.environ.get("DATA_CUTOFF", "2026-11-04")
 PATH_COLS = ["min_dd", "perfected", "entry_mode", "buf", "target", "time_stop", "window"]
-MIN_SEQ_IS = {"W": 60, "D": 250}
+MIN_SEQ_IS = {"W": 60, "D": 250} if MODE == "multi" else {"W": 25, "D": 120}
 ACCT = Account()
 
 
 def load_grid(tf):
-    return pd.read_csv(os.path.join(RESULTS, f"grid_{tf}.csv.gz"))
+    name = f"grid_{tf}.csv.gz" if MODE == "multi" else f"grid_{MODE}_{tf}.csv.gz"
+    return pd.read_csv(os.path.join(GRID_DIR, name))
+
+
+def SEL(seqs, m, priority="deepest_dd", rng=None):
+    return select(seqs, m, MODE, priority, rng)
 
 
 def pick_best(grid: pd.DataFrame, tf: str, m_fixed=None, scheme_fixed=None) -> pd.Series:
@@ -119,9 +128,13 @@ def detail(tf, prep, best, label):
     p = path_params(best)
     m, scheme = int(best.m), best.scheme
     atts, seqs = run_paths(prep, float(best.min_dd), bool(best.perfected), p)
-    sel = select_sequences(seqs, m)
+    sel = SEL(seqs, m)
     a = apply_sizing(atts, sel, m, scheme, ACCT)
     eq = daily_equity(a, prep, ACCT, p.cost_bps)
+    eq = eq.reindex(pd.DatetimeIndex(sorted(set().union(*[set(x["dates"]) for x in prep.values()]))))
+    eq["pnl"] = eq["pnl"].fillna(0.0)
+    eq["gross_expo_x"] = eq["gross_expo_x"].fillna(0.0)
+    eq["equity"] = ACCT.capital + eq["pnl"].cumsum()
     eq = eq[eq.index >= "1990-01-01"]
     data_end = eq.index[-1]
     yrs_full = (data_end - pd.Timestamp("1990-01-01")).days / 365.25
@@ -158,8 +171,8 @@ def placebo(prep, tf, best, n_rep=30, seed=7):
     for _ in range(n_rep):
         sigs = random_signals(prep, float(best.min_dd), bool(best.perfected), lookback, rng)
         atts, seqs = run_paths(prep, 0.0, False, p, signals_override=sigs)
-        a = apply_sizing(atts, select_sequences(seqs, m), m, scheme, ACCT)
-        a0 = apply_sizing(atts, select_sequences(seqs, 0), 0, "flat", ACCT)
+        a = apply_sizing(atts, SEL(seqs, m), m, scheme, ACCT)
+        a0 = apply_sizing(atts, SEL(seqs, 0), 0, "flat", ACCT)
         mt, m0 = metrics(a, 1.0), metrics(a0, 1.0)
         hb = hold_benchmark(prep, 0.0, False, int(best.time_stop), signals_override=sigs)
         out.append({"avg_R_seq": mt["avg_R_seq"], "PF": mt["PF"], "win%": mt["seq_win%"],
@@ -177,7 +190,7 @@ def risk_tables(tf, prep, design):
     atts, seqs = run_paths(prep, float(design.min_dd), bool(design.perfected), p)
     rows = []
     for m in range(MAX_ATTEMPTS):
-        sel = select_sequences(seqs, m)
+        sel = SEL(seqs, m)
         for scheme in SIZE_SCHEMES:
             if m == 0 and scheme != "flat":
                 continue
@@ -191,6 +204,20 @@ def risk_tables(tf, prep, design):
     risk = pd.DataFrame(rows)
     conc = []
     m, scheme = int(design.m), design.scheme
+    if MODE == "one":
+        # which signal wins when several fill on the same day?
+        rng = np.random.default_rng(11)
+        for pr in ["deepest_dd", "shallowest_dd"] + ["random"] * 100:
+            a = apply_sizing(atts, SEL(seqs, m, pr, rng), m, scheme, ACCT)
+            mt = metrics(a, (pd.Timestamp(DATA_CUTOFF) - pd.Timestamp("1990-01-01")).days / 365.25)
+            conc.append({"priority": pr, "n_seq": mt["n_seq"], "avg_R_seq": mt["avg_R_seq"], "R_per_yr": mt["R_per_yr"],
+                         "PF": mt["PF"], "maxDD_R": mt["maxDD_R"], "MAR": mt["MAR"]})
+        c = pd.DataFrame(conc)
+        rnd = c[c.priority == "random"]
+        summ = c[c.priority != "random"].copy()
+        for q, lab in [(0.5, "random (median of 100)"), (0.05, "random p5"), (0.95, "random p95")]:
+            summ.loc[len(summ)] = {"priority": lab, **rnd.drop(columns="priority").quantile(q).to_dict()}
+        return risk, summ
     for k in [2, 3, 5, 8, None]:
         sel = cap_concurrent(select_sequences(seqs, m), prep, m, k)
         a = apply_sizing(atts, sel, m, scheme, ACCT)
@@ -203,9 +230,19 @@ def risk_tables(tf, prep, design):
 
 
 def live_sequences(tf, prep, design):
-    """State of every sequence whose signal is recent enough to still be active today."""
+    """State of every sequence whose signal is recent enough to still be active today.
+    In MODE=one also says which one is the portfolio's single live campaign."""
     p = path_params(design)
     out = []
+    active_keys, campaign_live = set(), False
+    if MODE == "one":
+        atts_all, seqs_all = run_paths(prep, float(design.min_dd), bool(design.perfected), p)
+        sel = SEL(seqs_all, int(design.m))
+        last_day = max(x["dates"][-1] for x in prep.values())
+        live_sel = sel[sel[f"end_date_m{int(design.m)}"] >= last_day]
+        live_sel = live_sel[live_sel["status"].isin(["open", "waiting"])]
+        active_keys = set(zip(live_sel["ticker"], live_sel["s0"]))
+        campaign_live = bool(active_keys)
     for t, x in prep.items():
         sig = x["signals"]
         sig = sig[(sig.drawdown <= -float(design.min_dd)) & (sig.perfected | (not bool(design.perfected)))]
@@ -231,7 +268,19 @@ def live_sequences(tf, prep, design):
                          else "NEW SIGNAL - buy-stop above signal high"}[status]
             if status == "waiting" and len(atts) > int(design.m):
                 continue
+            if MODE == "one":
+                if (t, int(r.s0)) in active_keys:
+                    portfolio = "ACTIVE CAMPAIGN"
+                elif atts:
+                    portfolio = "skipped - another campaign was live when it filled"
+                elif campaign_live:
+                    portfolio = "blocked - a campaign is live"
+                else:
+                    portfolio = "free slot - takes it if it fills first"
+            else:
+                portfolio = ""
             out.append({"timeframe": tf, "ticker": t, "name": UNIVERSE[t][0], "signal_date": r.date.date().isoformat(),
+                        "portfolio": portfolio,
                         "signal_high": round(r.high, 2), "signal_low": round(r.low, 2),
                         "stop_level": round(stop, 2), "reentry_trigger": round(trig, 2),
                         "state": state, "attempts_used": len(atts) if status != "live" else 0,
@@ -243,14 +292,30 @@ def live_sequences(tf, prep, design):
 
 
 def main():
+    os.makedirs(RESULTS, exist_ok=True)
     prep = {"W": prepare("W", drop_after=DATA_CUTOFF), "D": prepare("D", drop_after=DATA_CUTOFF)}
-    summary = {"data_cutoff": DATA_CUTOFF, "split": SPLIT_DATE.date().isoformat(),
+    summary = {"mode": MODE, "data_cutoff": DATA_CUTOFF, "split": SPLIT_DATE.date().isoformat(),
                "account": ACCT.__dict__, "runs": {}}
     chosen = {}
     for tf in ["W", "D"]:
         grid = load_grid(tf)
-        best_any = pick_best(grid, tf)               # unconstrained optimum (any # re-entries)
-        design = pick_best(grid, tf, m_fixed=5)      # the requested design: up to 5 re-entries
+        reopt = None
+        if MODE == "multi":
+            best_any = pick_best(grid, tf)               # unconstrained optimum (any # re-entries)
+            design = pick_best(grid, tf, m_fixed=5)      # the requested design: up to 5 re-entries
+        else:
+            # Entry/exit rules come from the many-instruments optimisation (5-10x more trades, so far
+            # less overfit); under the one-campaign rule only the size scheme is chosen (in-sample).
+            mgrid = pd.read_csv(os.path.join(GRID_DIR, f"grid_{tf}.csv.gz"))
+            mg = mgrid[(mgrid.period == "IS") & (mgrid.n_seq >= {"W": 60, "D": 250}[tf]) & (mgrid.m == 5)]
+            rules = mg.sort_values("MAR", ascending=False).iloc[0][PATH_COLS]
+            same = np.ones(len(grid), dtype=bool)
+            for k in PATH_COLS:
+                same &= grid[k].to_numpy() == rules[k]
+            gis = grid[same & (grid.period == "IS").to_numpy()]
+            design = gis[gis.m == 5].sort_values("MAR", ascending=False).iloc[0]
+            best_any = gis.sort_values("MAR", ascending=False).iloc[0]
+            reopt = pick_best(grid, tf, m_fixed=5)       # full re-optimisation under the rule (overfit check)
         no_re = pd.concat([design[PATH_COLS], pd.Series({"m": 0, "scheme": "flat"})])
         chosen[tf] = design
         rm = reentry_matrix(grid, design)
@@ -268,7 +333,10 @@ def main():
         sens = {c: gf.groupby(c)[["R_per_yr", "MAR", "PF"]].median().reset_index().to_dict("records") for c in keys}
 
         runs = {}
-        for label, cfg in [(f"{tf}_design", design), (f"{tf}_no_reentry", no_re)]:
+        variants = [(f"{tf}_design", design), (f"{tf}_no_reentry", no_re)]
+        if MODE == "one" and (int(best_any.m) != 5 or best_any.scheme != design.scheme):
+            variants.append((f"{tf}_best_reentries", best_any))
+        for label, cfg in variants:
             res, ba, by_year, by_inst, seq_pnl, eq = detail(tf, prep[tf], cfg, label)
             res["by_attempt"] = ba.reset_index().to_dict("records")
             res["by_year"] = by_year.to_dict("records")
@@ -285,16 +353,21 @@ def main():
             print(ba.round(2))
         risk, conc = risk_tables(tf, prep[tf], design)
         risk.to_csv(os.path.join(RESULTS, f"risk_table_{tf}.csv"), index=False)
-        conc.to_csv(os.path.join(RESULTS, f"concurrency_{tf}.csv"), index=False)
+        conc.to_csv(os.path.join(RESULTS, f"{'concurrency' if MODE == 'multi' else 'priority'}_{tf}.csv"), index=False)
         print(risk[["m", "scheme", "ret_per_yr_%_of_capital", "max_dd_%_of_capital", "MAR_$", "sharpe",
                     "worst_seq_$", "max_gross_expo_x"]].round(2).to_string())
-        print(conc[["max_open", "n_seq", "ret_per_yr_%_of_capital", "max_dd_%_of_capital", "MAR_$", "sharpe"]].round(2).to_string())
+        print(conc.round(2).to_string())
         lv = live_sequences(tf, prep[tf], design)
         hold = hold_benchmark(prep[tf], float(design.min_dd), bool(design.perfected), int(design.time_stop))
         plc = placebo(prep[tf], tf, design)
         print("placebo:", plc)
         summary["runs"][tf] = {
             "design": runs[f"{tf}_design"], "no_reentry": runs[f"{tf}_no_reentry"],
+            "best_reentries": runs.get(f"{tf}_best_reentries"),
+            "reoptimised_under_rule": None if reopt is None else {
+                **{k: (v.item() if hasattr(v, "item") else v) for k, v in reopt[keys].items()},
+                "rows": cfg_rows(grid, reopt).reset_index()[["period", "n_seq", "avg_R_seq", "R_per_yr", "PF", "maxDD_R",
+                                                              "MAR", "worst_seq_R"]].to_dict("records")},
             "best_any": {**{k: (v.item() if hasattr(v, "item") else v) for k, v in best_any[keys].items()},
                          "rows": cfg_rows(grid, best_any).reset_index()[["period", "n_seq", "avg_R_seq", "R_per_yr",
                                                                           "PF", "maxDD_R", "MAR", "worst_seq_R"]].to_dict("records")},

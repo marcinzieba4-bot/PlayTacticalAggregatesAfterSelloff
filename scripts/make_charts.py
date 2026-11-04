@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RES = os.path.join(ROOT, "results")
+MODE = os.environ.get("MODE", "multi")
+RES = os.path.join(ROOT, "results") if MODE == "multi" else os.path.join(ROOT, "results", "one_campaign")
 S = json.load(open(os.path.join(RES, "summary.json")))
 
 INK, INK2, MUTED, GRID, AXIS, SURF = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb"
@@ -30,6 +31,8 @@ def eq(run):
 fig, ax = plt.subplots(figsize=(10, 5), dpi=150)
 lines = [("W", "design", BLUE, "-", "Weekly 9 - with 5 re-entries"), ("W", "no_reentry", BLUE, "--", "Weekly 9 - no re-entry"),
          ("D", "design", ORANGE, "-", "Daily 9 - with 5 re-entries"), ("D", "no_reentry", ORANGE, "--", "Daily 9 - no re-entry")]
+if MODE == "one":
+    lines[2] = ("D", "best_reentries", ORANGE, "-", "Daily 9 - 1 re-entry at 2x")
 for tf, k, c, ls, lab in lines:
     e = eq(S["runs"][tf][k]) / 1000
     ax.plot(e.index, e.values, color=c, ls=ls, lw=2 if ls == "-" else 1.6, label=lab)
@@ -38,7 +41,8 @@ for tf, k, c, ls, lab in lines:
 ax.axvline(pd.Timestamp(S["split"]), color=MUTED, lw=1, ls=":")
 ax.text(pd.Timestamp(S["split"]), ax.get_ylim()[1] * 0.97, "  out-of-sample ->", color=MUTED, fontsize=8, va="top")
 ax.set_ylabel("Equity (\\$k) - start \\$100k, 0.5% base risk, no compounding")
-ax.set_title("DeMark buy-setup 9 on DM indices + US sectors - portfolio equity (1990-2026)", color=INK, loc="left", fontsize=11)
+ax.set_title("DeMark buy-setup 9 on DM indices + US sectors - portfolio equity (1990-2026)"
+             + (" - ONE campaign at a time" if MODE == "one" else ""), color=INK, loc="left", fontsize=11)
 ax.legend(frameon=False, loc="upper left", fontsize=9)
 ax.xaxis.set_major_locator(mdates.YearLocator(4))
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
