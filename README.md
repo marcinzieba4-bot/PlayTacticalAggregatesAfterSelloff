@@ -97,6 +97,64 @@ Reproduce: `python scripts/macd_variants_study.py && python scripts/macd_variant
 
 ---
 
+## Short leg on the WORST weekly-MACD profile (27 DM indices + US sectors)
+
+Scripts: `scripts/worst_short_study.py` and `scripts/worst_short_charts.py`; results in `results/worst_short/`.
+
+**How "worst MACD profile" is measured.** A raw MACD isn't comparable across assets, because it is in index points. So each week every asset gets four candidate scores; lower = worse:
+
+| Score | Formula | What a very negative value means |
+|---|---|---|
+| depth | MACD / price | the 12-week average is far below the 26-week average, i.e. a deep downtrend |
+| depth_vol | MACD / (price × 26-week volatility) | the same depth measured in the asset's own weekly swings, so quiet utilities and volatile Hang Seng compare fairly |
+| accel | (MACD − signal) / price | negative histogram: the downtrend is **still accelerating** |
+| **composite** | average cross-sectional rank of depth_vol and accel_vol | **deep in σ terms AND still getting worse.** This is the "worst profile" chosen in-sample (1990-2012) |
+
+**Short leg rules:**
+* Each week, short the **3 worst** assets that are also in a downtrend (MACD and signal below 0), at the next open.
+* Cover when MACD turns above 0, when the asset leaves the worst 6, or after 1 year.
+* 1/3 of equity per short, no leverage.
+
+| 1990-2026 | Trades | Win % | Avg trade | CAGR (in / out of sample) | Max DD | Sharpe |
+|---|---|---|---|---|---|---|
+| **Short the 3 worst — composite (chosen)** | 337 | 34 % | −1.1 % | **−3.9 %** (−1.1 / −8.4) | **−83 %** | −0.21 |
+| Short the 3 worst — depth / depth_vol / accel | 213-299 | 28-32 % | −1.5 to −2.1 % | −4.8 to −5.1 % | −86 to −88 % | −0.26 to −0.30 |
+| Short only the single worst / the 5 worst | 161 / 389 | 39 / 33 % | | −4.8 / −3.9 % | −88 / −81 % | −0.14 / −0.25 |
+| *Long the 3 best profiles (mirror image, depth_vol)* | 269 | 55 % | +4.4 % | 9.4 % (8.6 / 10.6) | −40 % | 0.68 |
+| *Contrarian: BUY the 3 worst profiles, sell when MACD > 0* | 214-340 | **66-72 %** | +1.0 to +2.0 % | 2.2-3.0 % | −61 to −72 % | 0.21-0.26 |
+| *Long: new MACD up-phase, max 3 (earlier rules)* | 125 | 48 % | +7.8 % | **8.4 %** | **−24 %** | **0.80** |
+| Earlier long + 50 % worst-short overlay | – | – | – | 6.8 % | −21.5 % | 0.64 |
+| Earlier long + 100 % worst-short overlay | – | – | – | 4.6 % | −34.5 % | 0.37 |
+| 50 / 50 earlier long + worst short | – | – | – | 2.6 % | −17.7 % | 0.37 |
+| *Equal-weight buy & hold of the 27* | – | – | – | 9.7 % | −52 % | 0.68 |
+
+![worst short](results/worst_short/worst_short.png)
+
+**What to take from it (and what "worst MACD profile" means)**
+
+1. **The worst profile is a stretched, still-falling market, and those usually bounce.** An asset that is deep below its 26-week trend and still accelerating down is *oversold*. Buying the 3 worst profiles wins **66-72 %** of the time. Shorting them therefore loses: −4 to −5 %/yr, with a −83 % to −88 % drawdown. That is the same mean-reversion this project started from (DeMark 9 after a sell-off).
+2. **The short leg is crash insurance, not an alpha source.** It made money in only 9 of 36 years, but those are the crashes: **+55 % in 2008, +28 % in 2002, +21 % in 2000, +8 % in 2018**. It loses steadily in normal years and gets hit hardest in V-shaped rebounds: −27 % in 2020, −22 % in 2023, −20 % in 2019 and 2025.
+3. **As an overlay it costs more than it saves.** Adding a 50 % worst-profile short to the long strategy lowers the max drawdown only from −24 % to −21.5 %, but cuts CAGR from 8.4 % to 6.8 % and Sharpe from 0.80 to 0.64. A full-size overlay is worse. The long leg's own MACD < 0 exit already takes you to cash in bear markets, which is cheaper protection.
+4. **Use the MACD profile the other way round.** The *best* profile (highest depth_vol) is a decent long rotation: 9.4 %/yr, Sharpe 0.68, −40 % DD. The earlier rule (buy a new up-phase) is still the best long: Sharpe 0.80, −24 % DD.
+5. **If you still want a short leg:** keep it small and use it only in a market-wide downtrend (e.g. when most of the 27 have MACD < 0). It only pays when the whole market is falling, not when one sector is.
+
+**Worst MACD profiles right now** (week ending 2026-10-30; composite rank, 1 = worst):
+
+| Rank | Asset | MACD % of price | MACD in σ | Histogram % | Downtrend (both lines < 0) | Reading |
+|---|---|---|---|---|---|---|
+| 1 | XLI Industrials | −0.62 % | −0.40 | −1.16 % | no (signal still > 0) | fresh roll-over, falling fast but not yet a confirmed downtrend |
+| 2 | **CAC 40** | −1.14 % | −0.74 | −0.80 % | **yes** | the worst *confirmed* downtrend, still accelerating. **Short held since 2026-10-26 (−2.6 %)** |
+| 4 | XLC Communication Services | −1.54 % | −0.68 | −0.83 % | yes | deep and accelerating; just outside the worst 3 |
+| 4 | FTSE MIB / Russell 2000 | +0.59 % / +0.17 % | +0.33 / +0.09 | −1.33 % / −1.27 % | no | still in up-trends, but momentum fading fast |
+| 6 | Hang Seng | −1.85 % | −0.76 | −0.75 % | yes | the deepest downtrend in σ terms |
+| 12 | XLU Utilities | −1.34 % | −0.57 | +0.04 % | yes | deep but already stabilising (histogram turned up) |
+
+These are backtest model states, not investment advice.
+
+Reproduce: `python scripts/worst_short_study.py && python scripts/worst_short_charts.py`.
+
+---
+
 ## US stocks without survivorship bias: point-in-time S&P 500 membership
 
 Scripts: `scripts/sp500_pit_data.py`, `scripts/sp500_pit_fix.py` and `scripts/sp500_pit_study.py`; results in `results/sp500_pit/`.
@@ -598,6 +656,8 @@ scripts/
                    point-in-time S&P 500 top 100 (less survivorship bias) -> data/sp500_pit/, results/sp500_pit/
   macd_short_study.py  short leg on DM indices (MACD < 0), combined long/short -> results/macd_short/
   pit_short_charts.py  charts for both
+  worst_short_study.py / worst_short_charts.py
+                   short leg on the worst weekly-MACD profile of the 27, contrarian test, overlays -> results/worst_short/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py
