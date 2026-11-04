@@ -3,3 +3,4 @@ __pycache__/
 .pytest_cache/
 data/raw/
 results/grid_*.csv.gz
+data/us100/raw/

@@ -97,6 +97,48 @@ Reproduce: `python scripts/macd_variants_study.py && python scripts/macd_variant
 
 ---
 
+## The same MACD tests on the 100 biggest US stocks
+
+Universe (`scripts/us100_universe.py`): today's 100 largest S&P 500 companies by market cap (Yahoo Finance, Nov 2026), one share class each, from Apple ($5.1tn) to #100 at $123bn. Daily data is dividend- and split-adjusted, from 1990 or the listing date. Rules are the same as the index study: buy at the next open when the weekly MACD and signal both turn > 0, exit on MACD < 0 or after 1 year, 1/N of equity per position, no leverage. Script: `scripts/us100_study.py`; results in `results/us100/`.
+
+> **Big caveat: survivorship bias.** These are *today's* winners: Nvidia, Tesla, Vertex, Palantir and so on. Any backtest on them back to 1990 looks great, so the fair yardstick is **buy & hold of the same 100 stocks**, which has the same bias.
+
+| 1990-2026, compounded | Positions | CAGR (in / out of sample) | Max DD | Sharpe | Invested |
+|---|---|---|---|---|---|
+| **MACD signal, max 3 stocks (asked rules)** | 201 | **21.3 %** (17.7 / 27.6) | **−75 %** | 0.85 | 91 % |
+| MACD signal, max 5 | 325 | 19.9 % | −61 % | 0.91 | 91 % |
+| MACD signal, max 10 | 607 | 20.7 % (23.3 / 16.2) | −53 % | 1.07 | 89 % |
+| MACD signal, max 20 | 1,131 | 19.3 % (19.8 / 18.3) | −41 % | 1.15 | 85 % |
+| **+ 1 % stop, re-entry at first entry, max 3** | 201 | **24.5 %** (23.7 / 25.7) | −51 % | 1.02 | 76 % |
+| **+ 1 % stop, re-entry at first entry, max 10** | 608 | 22.1 % (25.5 / 16.4) | **−39 %** | **1.25** | 77 % |
+| Pyramid up, 1 % step, 5 adds, max 3 / max 10 | 201 / 608 | 21.6 % / 19.9 % | −61 % / −50 % | 0.89 / 1.08 | 83 % / 81 % |
+| Martingale ladder ×2, 1 % step, max 3 / max 10 | 201 / 616 | 13.5 % / 12.7 % | −72 % / −46 % | 0.69 / 0.87 | 50 % |
+| Same rules, max 3, random pick among same-day signals (30 draws) | – | 16.0 % (10.6-24.1) | −62 % (−50 to −73) | 0.75 (0.55-1.03) | – |
+| *Equal-weight buy & hold of the same 100 stocks* | – | **22.0 %** (21.4 / 22.7) | **−47 %** | **1.13** | 100 % |
+| *S&P 500 total return* | – | 10.8 % | −55 % | 0.66 | 100 % |
+
+![us100](results/us100/equity_us100.png)
+
+**What to take from it**
+
+1. **The 20 %+ returns come from the stock list, not the signal.** Just holding the same 100 stocks made 22 %/yr with Sharpe 1.13. The asked rules (max 3) made 21 %/yr with a **−75 % drawdown**: 2000-02 wiped out three quarters of the account, and the drawdown from the Nov 2000 peak bottomed only in July 2009. Against the right yardstick the plain MACD strategy adds nothing.
+2. **The weekly MACD is too slow for single stocks.** Individual stocks crash far faster than indices. Trades lost **−53 %** (Intuitive Surgical 2001), −41 % (Capital One 2002), −36 % (Nvidia 2001) and −32 % (Gilead 2000) before the weekly MACD turned negative. With only 3 positions, a few of those sink the account.
+3. **Which 3 stocks you hold is mostly luck.** Picking randomly among same-day signals gives anywhere from 10.6 % to 24.1 %/yr (mean 16 %). The 21 % comes largely from a few giant winners: Vertex +391 % in 1999-2000, Tesla, Amphenol, Merck. The take-profit grid is noisy for the same reason.
+4. **On stocks the 1 % stop with re-entry *does* help, unlike on indices.** It cuts the crashing stocks early and re-buys if they recover:
+   * Max 3: 24.5 %/yr with DD −51 % instead of −75 %.
+   * Max 10: 22.1 %/yr, **DD −39 %, Sharpe 1.25**. This is the only setup that beats buy & hold of the same stocks on risk (−39 % vs −47 %, Sharpe 1.25 vs 1.13).
+   * Caveat: the max 10 version earned only 16.4 %/yr in 2013-2026, versus 22.7 % for buy & hold.
+5. **More positions are safer:** 3 → 10 → 20 stocks moves the drawdown from −75 % → −53 % → −41 % at about the same return. Pyramiding is about neutral, as on indices. The martingale ladder is clearly worse (12-14 %/yr).
+6. **What to use on stocks:** hold **10-20 names**, not 3. **Add the 1 % stop with re-entry at the first entry price.** Judge it against buy & hold of the same list, not against the S&P 500. To remove the survivorship bias you would need point-in-time index membership (e.g. a paid S&P constituents history).
+
+**Live (asked rules, max 3, 2026-11-03):** Merck (+50 % since 2025-11-24), Eli Lilly (+41 % since 2026-05-18), Visa (+18 % since 2026-07-20). 66 of the 100 stocks have both weekly MACD lines above 0 right now. These are backtest model states, not investment advice.
+
+*Sizing note:* this study caps each new position at the cash not tied up in open positions, so there is no hidden leverage. The same fix applied to the index study changes it only marginally: base 8.5 % → 8.4 %/yr, DD −25.5 % → −24.2 %, Sharpe 0.79 → 0.80.
+
+Reproduce: `python scripts/us100_universe.py && python scripts/us100_data.py && python scripts/us100_study.py && python scripts/us100_charts.py`.
+
+---
+
 ## Weekly-MACD strategy: pyramiding up (1 unit, +1 unit every 1 % up)
 
 Same signal, MACD < 0 stop, 3 slots and compounding as above (`scripts/macd_pyramid_study.py`, results in `results/macd_pyramid/`).
@@ -477,6 +519,8 @@ scripts/
   macd_variants_charts.py its chart
   macd_pyramid_study.py   pyramiding up (+1 unit every 1 % up) -> results/macd_pyramid/
   macd_pyramid_charts.py  its chart
+  us100_universe.py / us100_data.py / us100_study.py / us100_charts.py
+                   the same MACD tests on the 100 biggest US stocks -> data/us100/, results/us100/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py

@@ -37,6 +37,7 @@ DATA_CUTOFF = os.environ.get("DATA_CUTOFF", "2026-11-04")
 CAPITAL = 100_000.0
 START = pd.Timestamp("1990-01-01")
 MAX_OPEN = 3
+NO_LEVERAGE = True  # a new campaign never gets more than the cash not committed to open campaigns
 TP_DAYS = [91, 182, 365, 730, None]
 TP_LEVELS = [0.05, 0.10, 0.20, 0.30, None]
 MODES = {  # name -> engine kwargs
@@ -88,28 +89,36 @@ def run(inst, sig, cal, kw, tp_days, tp_level):
     pnl_day = np.zeros(len(cal))
     expo_day = np.zeros(len(cal))
     eq = np.zeros(len(cal))
-    active = []  # (end_date, ticker)
+    active = []  # dicts: end, ticker, pos (calendar indices), notional ($ path), budget
     camps = []
-    k_sig = 0
     equity = CAPITAL
     sig_by_day = {d: g for d, g in sig.groupby("entry_date")}
     for di, day in enumerate(cal):
-        active = [(e, t) for e, t in active if e > day]
+        active = [a for a in active if a["end"] > day]
         if day in sig_by_day and len(active) < MAX_OPEN:
             for r in sig_by_day[day].itertuples(index=False):
-                if len(active) >= MAX_OPEN or any(t == r.ticker for _, t in active):
+                if len(active) >= MAX_OPEN or any(a["ticker"] == r.ticker for a in active):
                     continue
                 x = inst[r.ticker]
-                res = simulate_campaign(x, r.e, tp_days=tp_days, tp_level=tp_level, **kw)
                 budget = equity / MAX_OPEN
+                if NO_LEVERAGE:
+                    committed = 0.0
+                    for a in active:  # capital tied up: current position value, at least the reserved budget
+                        k = np.searchsorted(a["pos"], di - 1, side="right") - 1
+                        committed += max(a["notional"][k] if k >= 0 else 0.0, a["budget"])
+                    budget = min(budget, max(0.0, equity - committed))
+                if budget <= 0:
+                    continue
+                res = simulate_campaign(x, r.e, tp_days=tp_days, tp_level=tp_level, **kw)
                 dts = x["idx"][r.e:r.e + len(res["pnl"])]
                 pos = cal_pos.reindex(dts).to_numpy()
                 inc = np.diff(np.concatenate([[0.0], res["pnl"]])) * budget
                 pnl_day[pos] += inc
                 expo_day[pos] += res["notional"] * budget
                 end_date = x["idx"][res["end"]] if res["reason"] != "open" else pd.Timestamp.max
-                active.append((end_date, r.ticker))
-                camps.append({"ticker": r.ticker, "name": UNIVERSE[r.ticker][0], "entry_date": day,
+                active.append({"end": end_date, "ticker": r.ticker, "pos": pos,
+                               "notional": res["notional"] * budget, "budget": budget})
+                camps.append({"ticker": r.ticker, "name": x.get("name") or UNIVERSE[r.ticker][0], "entry_date": day,
                               "end_date": x["idx"][res["end"]], "reason": res["reason"], "ret_%": 100 * res["ret"],
                               "fills": res["fills"], "stops": res["stops"], "budget": budget,
                               "pnl_$": res["ret"] * budget})
