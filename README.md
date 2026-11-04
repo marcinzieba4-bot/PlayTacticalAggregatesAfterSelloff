@@ -97,6 +97,41 @@ Reproduce: `python scripts/macd_variants_study.py && python scripts/macd_variant
 
 ---
 
+## Weekly-MACD strategy: pyramiding up (1 unit, +1 unit every 1 % up)
+
+Same signal, MACD < 0 stop, 3 slots and compounding as above (`scripts/macd_pyramid_study.py`, results in `results/macd_pyramid/`).
+* Start with **1 unit** at the first entry E0.
+* Add **+1 unit on a buy-stop every 1 % above E0** (E0 × 1.01, × 1.01², …), up to K adds.
+* The K+1 units together equal the slot's 1/3 of equity, so there is no leverage.
+* Everything is closed on MACD < 0 or at the take-profit (same time × level grid as before).
+
+| 1-year exit, no level | Avg units bought | Win % | Avg campaign | Winners / losers avg | Worst campaign | CAGR (in / out of sample) | Max DD | Sharpe | Invested |
+|---|---|---|---|---|---|---|---|---|---|
+| **All-in at entry (base)** | 1 | 48 % | +7.8 % | +22.3 % / −5.5 % | −12.8 % | **8.5 %** (7.4 / 10.3) | −26 % | **0.79** | 69 % |
+| Pyramid, 3 adds | 3.4 | 45 % | +7.3 % | | −14.2 % | 8.1 % (7.0 / 9.9) | −25 % | 0.79 | 64 % |
+| Pyramid, 5 adds | 4.7 | 45 % | +7.0 % | | −15.0 % | 7.7 % (6.6 / 9.6) | −25 % | 0.78 | 61 % |
+| Pyramid, 10 adds | 7.6 | 42 % | +6.0 % | +18.9 % / −3.4 % | −17.0 % | 6.7 % (5.6 / 8.4) | −22 % | 0.73 | 54 % |
+| Pyramid, 20 adds | 11.8 | 38 % | +4.5 % | | −15.7 % | 4.9 % (4.1 / 6.3) | −18 % | 0.65 | 40 % |
+| Pyramid, 40 adds | 14.2 | 38 % | +2.7 % | | −8.1 % | 3.1 % | −9 % | 0.61 | 23 % |
+| Pyramid, 2 % step, 10 adds | 6.2 | 38 % | +4.5 % | | −15.8 % | 4.9 % | −18 % | 0.66 | 40 % |
+
+![pyramid](results/macd_pyramid/macd_pyramid.png)
+
+**What to take from it**
+
+1. **Pyramiding up does not improve the strategy.** Every add lowers CAGR and Sharpe: 0.79 → 0.78 → 0.73 → 0.65 for 0 / 5 / 10 / 20 adds. A small pyramid (3-5 adds) is about the same as the base; a large one is clearly worse.
+2. **Why:**
+   * It does cut the failed trades: the average MACD-stop loss falls from −4.4 % to −3.2 % with 10 adds.
+   * But it cuts the winners more, from +26 % to +20 % on 1-year exits, because the extra units are bought higher.
+   * And when a strong trend finally rolls over, the position is fully loaded at the top before the weekly MACD stop fires. That makes the worst campaign *worse* (−17 % vs −13 %).
+   * Return per dollar invested is unchanged (about 12.3 % for every variant), so pyramiding is just a slower way of getting in.
+3. **Take-profit:** the pattern is the same as before. A long hold (2 years / none) with no target gives the most return (8.0-8.2 % with 10 adds). The best Sharpe cells (0.81 at 3 months / +10 %) only invest 8-16 % of the money, so they earn 1-3 %/yr. You would need leverage to make them useful, and leveraged they end up no better than the base.
+4. **Bottom line:** keep buying the full position at the signal. If you want a gentler ramp-in, 3 adds of 1 % costs almost nothing (8.1 % vs 8.5 % CAGR, same Sharpe).
+
+Reproduce: `python scripts/macd_pyramid_study.py && python scripts/macd_pyramid_charts.py`.
+
+---
+
 ## (First reading of the MACD idea) DeMark 9 only in an uptrend: weekly MACD filter, MACD stop, 1-year exit, max 3 assets
 
 Rules (`scripts/macd_study.py`, results in `results/macd/`):
@@ -440,8 +475,10 @@ scripts/
   macd_only_charts.py its chart
   macd_variants_study.py  1 % stop + re-entry, 1 % ladder / martingale, take-profit grid -> results/macd_variants/
   macd_variants_charts.py its chart
+  macd_pyramid_study.py   pyramiding up (+1 unit every 1 % up) -> results/macd_pyramid/
+  macd_pyramid_charts.py  its chart
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
-strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder, time + level TP)
+strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py
 results/        many-campaigns run: summary.json, equity_*.csv, trades_*.csv, risk/concurrency tables, live state, charts
 results/one_campaign/   the same outputs under the one-campaign-at-a-time rule (+ priority_*.csv tie-break test)

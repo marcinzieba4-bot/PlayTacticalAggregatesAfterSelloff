@@ -142,3 +142,14 @@ def test_macd_engine_ladder_martingale_and_macd_stop():
     r = simulate_campaign(x, 0, mode="ladder", tp_days=None, tp_level=None, step=0.01, K=5, sizing="mart", cost=0.0)
     assert r["reason"] == "MACD < 0" and r["end"] == 2
     assert r["fills"] == 5                                          # 100, 99, 98.01, 97.03, 96.06
+
+
+def test_macd_engine_pyramid_up():
+    from strategy.macd_engine import simulate_campaign
+    x = _bars([(100, 101.5, 99.5, 101), (101, 103.5, 100.5, 103), (103, 103, 98, 99)])
+    x["wk_close"][2] = True
+    x["macd"][2] = -1.0
+    r = simulate_campaign(x, 0, mode="pyramid", tp_days=None, tp_level=None, step=0.01, K=10, cost=0.0)
+    # units at 100, 101, 102.01, 103.03 -> 4 of 11 units, all out at the next open after the MACD < 0 close
+    assert r["fills"] == 4 and r["reason"] == "open"
+    assert r["notional"][1] == pytest.approx((1 / 11) * 103 * (1 / 100 + 1 / 101 + 1 / 102.01 + 1 / 103.0301), rel=1e-9)

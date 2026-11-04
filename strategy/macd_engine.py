@@ -12,6 +12,9 @@ Modes (position sizes are fractions of the campaign budget = 1.0):
   sl_reentry  : buy 1.0 at E0; stop at E0 * (1 - sl); after a stop, buy 1.0 again on a
                 buy-stop at E0 (the first entry point), any number of times.
                                                             level TP = E0 * (1 + tp_level)
+  pyramid     : pyramiding UP: 1 unit at E0, then +1 unit on a buy-stop every `step` above E0
+                (levels U_k = E0 * (1 + step)^k, k = 1..K); K+1 equal units = 1.0 (no leverage).
+                No price stop (only the MACD stop).              level TP = E0 * (1 + tp_level)
   ladder      : buy-limits every `step` below E0: levels L_k = E0 * (1 - step)^k, k = 0..K,
                 size w_k (flat: 1, martingale: 2^k) scaled so that the full ladder = 1.0
                 (no leverage). No price stop (only the MACD stop).
@@ -53,8 +56,13 @@ def simulate_campaign(x, e, mode="base", tp_days=365, tp_level=None, sl=0.01, st
         qty = 0.0
         cost_basis = 0.0
 
-    # ladder setup
-    if mode == "ladder":
+    # ladder / pyramid setup
+    if mode == "pyramid":
+        w = np.full(K + 1, 1.0 / (K + 1))
+        levels = E0 * (1 + step) ** np.arange(K + 1)
+        next_k = 1
+        buy(E0, w[0])
+    elif mode == "ladder":
         w = np.array([2.0 ** k if sizing == "mart" else 1.0 for k in range(K + 1)])
         w = w / w.sum()
         levels = E0 * (1 - step) ** np.arange(K + 1)
@@ -103,6 +111,10 @@ def simulate_campaign(x, e, mode="base", tp_days=365, tp_level=None, sl=0.01, st
                     while next_k <= K and o <= levels[next_k]:
                         buy(o, w[next_k])
                         next_k += 1
+                elif mode == "pyramid":
+                    while next_k <= K and o >= levels[next_k]:
+                        buy(o, w[next_k])
+                        next_k += 1
         # --- intrabar path
         if not done:
             pts = (o, h, l, c) if (h - o) < (o - l) else (o, l, h, c)
@@ -112,6 +124,11 @@ def simulate_campaign(x, e, mode="base", tp_days=365, tp_level=None, sl=0.01, st
                     if mode == "sl_reentry" and not in_pos and lo_ < E0 <= b:
                         buy(E0, 1.0)
                         in_pos, lo_ = True, E0
+                    if mode == "pyramid":
+                        T0 = target()
+                        while next_k <= K and lo_ < levels[next_k] <= b and (T0 is None or levels[next_k] < T0):
+                            buy(levels[next_k], w[next_k])
+                            next_k += 1
                     T = target()
                     if in_pos and T is not None and lo_ < T <= b:
                         sell_all(T)
