@@ -151,6 +151,48 @@ Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_ch
 
 ---
 
+## Holding period 3 vs **6** vs 12 months (S&P 500 50-day filter, MACD signal, 1 % stop)
+
+Scripts: the same `scripts/indices_ma50_study.py` and `scripts/stocks_ma50_study.py`, now with a 6-month hold (time exit at the first open ≥ entry + 182 days) in the grid; results in `results/indices_ma50/` and `results/stocks_ma50/`. Everything else is unchanged: the weekly MACD up-phase signal, buys and re-buys only while the S&P 500 is above its 50-day average, the 1 % stop with re-entry at the entry price, and the exit after a weekly MACD < 0 close. After a time exit an asset can only be bought again on a new MACD up-phase.
+
+**27 DM indices + US sectors, max 3, 1990-2026** (CAGR · max DD · Sharpe · average invested):
+
+| | 3 months | **6 months** | 1 year |
+|---|---|---|---|
+| **S&P > 50-day, 1 % stop** | 4.1 % · −14 % · 0.70 · 30 % | **5.2 % · −25 % · 0.67 · 43 %** | 7.0 % · −26 % · 0.75 · 58 % |
+| S&P > 50-day, no stop | 5.1 % · −20 % · 0.67 | 6.0 % · −21 % · 0.66 | 8.1 % · −25 % · 0.77 |
+| S&P > 100-day, no stop | 4.8 % · −17 % · 0.66 | 6.2 % · −25 % · 0.69 | **8.8 % · −20 % · 0.85** |
+| No filter, no stop | 5.3 % · −20 % · 0.66 | 6.4 % · −22 % · 0.67 | 8.4 % · −24 % · 0.80 |
+| *16 DM indices only, S&P > 50d, 1 % stop* | 3.3 % · −12 % · 0.65 | 4.5 % · −17 % · 0.66 | 6.0 % · −21 % · 0.71 |
+| *11 US sectors only, no filter, no stop* | 3.6 % · −14 % · 0.56 | **5.2 % · −16 % · 0.66** | 4.4 % · −24 % · 0.50 |
+
+Random pick among same-day signals (50 draws): S&P 50-day, 6 months, 1 % stop averages 4.9 % / −24 % / 0.64, against 3.8 % / −15 % / 0.66 for 3 months and 6.8 % / −27 % / 0.73 for 1 year.
+
+**Point-in-time top-100 US stocks, 1997-2026** (CAGR · max DD · Sharpe; random-pick mean in brackets):
+
+| | 3 months | **6 months** | 1 year |
+|---|---|---|---|
+| **S&P > 50-day, 1 % stop, 10 stocks** | 6.1 % · −24 % · 0.69 (5.7 % · −27 % · 0.66) | **6.0 % · −22 % · 0.59** (5.7 % · −23 % · 0.57) | 6.6 % · −32 % · 0.56 (5.8 % · −38 % · 0.51) |
+| S&P > 50-day, 1 % stop, 20 stocks | 3.7 % · −19 % · 0.58 | 5.1 % · −17 % · 0.58 (5.2 % · −17 % · 0.60) | 6.4 % · −24 % · 0.61 |
+| S&P > 100-day, 1 % stop, 20 stocks | 4.7 % · −15 % · 0.68 | 5.9 % · −18 % · 0.63 (6.0 % · −18 % · 0.66) | 6.7 % · −24 % · 0.61 |
+| No filter, 1 % stop, 10 stocks | 7.5 % · −29 % · 0.73 | 7.9 % · −36 % · 0.66 (8.3 % · −33 % · 0.70) | 6.8 % · −45 % · 0.53 |
+| **No filter, 1 % stop, 20 stocks** | 5.8 % · −22 % · 0.76 (5.9 % · −23 % · 0.77) | **7.8 % · −25 % · 0.76** (7.4 % · −25 % · 0.73) | 8.0 % · −36 % · 0.67 |
+| S&P > 50-day, 1 % stop, 3 stocks | 4.8 % · −38 % · 0.42 | 2.9 % · −64 % · 0.26 | 3.0 % · −43 % · 0.27 |
+| *Equal-weight PIT top 100 / S&P 500 TR* | | *12.8 % · −58 % · 0.67 / 10.1 % · −55 % · 0.60* | |
+
+Selected years: indices S&P 50d + 1 % stop at 3 / 6 / 12 months: 2008 −5.8 / −6.2 / −6.2 %, 2009 +9.8 / +16.7 / +18.9 %, 2024 −1.3 / +6.4 / +20.8 %. Stocks, no filter + 1 % stop, 20 stocks, 3 / 6 months: 2008 −4.3 / −13.0 %, 2009 +8.6 / +7.8 %, 2024 +7.1 / +17.7 %.
+
+**What to take from it**
+
+1. **Indices + sectors: 6 months is not a sweet spot.** With the asked filter and stop, return rises almost linearly with the holding period (4.1 → 5.2 → 7.0 %/yr). The drawdown, however, jumps to nearly the 1-year level already at 6 months (−14 → −25 → −26 %). The 6-month Sharpe (0.67) is the lowest of the three, and the random picks confirm it. A 6-month exit still holds through the crash but cuts the trend before the payoff. **On the 27, keep the 1-year hold** (best: S&P > 100-day, no stop, 8.8 % / −20 % / 0.85; 0.91 with 5 slots). Use 3 months only if the lowest drawdown matters most.
+2. **Exception: US sectors alone prefer 6 months.** 5.2 %/yr, −16 %, Sharpe 0.66, against 4.4 % / −24 % / 0.50 with a 1-year hold. Sector leadership rotates faster than country indices trend. DM indices alone still prefer 1 year.
+3. **Stocks with the S&P 50-day filter: 6 months ≈ 3 months.** With 10 stocks it gives 6.0 % / −22 % / 0.59 (random 5.7 %), which is no better than 3 months on return and worse on Sharpe. With 20 stocks it adds return (5.1 % vs 3.7 %) at a similar drawdown (−17 %).
+4. **Stocks: the best balance found so far is no filter, 6-month hold, 1 % stop, 20 stocks.** It makes **7.8 %/yr with −25 % max DD and Sharpe 0.76** (random 7.4 % / −25 % / 0.73). That is about 2 %/yr more than the 3-month version at the same Sharpe, and almost the 1-year return (8.0 %) with 11 points less drawdown. It is 60 % invested on average.
+5. **Never run these with only 3 stocks.** With a filter and a 6-month hold the 3-stock books have max drawdowns of −64 to −85 %; a handful of trades decides everything.
+6. **Current state (2026-11-03):** the S&P 500 is 1.6 % below its 50-day average, so all filtered books are frozen for new buys (the no-filter book keeps trading). The 6-month index book holds only XLF (until early January). The no-filter 6-month stock book (20 stocks) holds LLY (+40 %), V (+16 %), CRWD (+15 %), PFE (+12 %), MA (+10 %), ABT, PYPL, PLTR, PG and UNH; 10 more names are stopped out and wait to re-trigger at their entry prices. These are backtest model states, not investment advice.
+
+---
+
 ## DM indices + US sectors: S&P 500 **50-day** filter + **3-month** holding period (MACD signal, 1-2 % stop)
 
 Scripts: `scripts/indices_ma50_study.py` and `scripts/indices_ma50_charts.py`; results in `results/indices_ma50/`.
@@ -161,7 +203,7 @@ Rules: the single-stock test above, applied to the original 27 instruments (16 D
 * exit at the next open after a weekly MACD < 0 close or **after 3 months**;
 * max 3 positions (also 5), 1/N of equity each, compounding, 3 bps per side.
 
-Grid: filter (none / S&P 50-day / S&P 100-day / asset's own 50-day) × hold (3 months / 1 year) × stop (none / 1 % / 2 %) × max 3 / 5 = 48 runs. Key variants are also run on the DM indices and sectors alone, plus 50 random-pick draws.
+Grid: filter (none / S&P 50-day / S&P 100-day / asset's own 50-day) × hold (3 months / 1 year; 6 months added in the section above) × stop (none / 1 % / 2 %) × max 3 / 5. Key variants are also run on the DM indices and sectors alone, plus 50 random-pick draws.
 
 | 27 instruments, max 3, 1990-2026 (CAGR · max DD · Sharpe · avg invested) | 3-month hold | 1-year hold |
 |---|---|---|
@@ -218,7 +260,7 @@ Rules: same as the section below (point-in-time S&P 500 top 100, weekly MACD up-
 * the regime filter is the **S&P 500 above its 50-day average** (was 100-day). It gates the entry and every re-entry after a stop;
 * the **time exit is after 3 months** (the first open ≥ entry + 91 days; was 1 year). After a time exit the stock can only be bought again on a new MACD up-phase.
 
-To separate the two changes, every combination of filter (none / S&P 50-day / S&P 100-day / stock's own 50-day) × holding period (3 months / 1 year) × stop (none / 1 % / 2 %) × max 3 / 10 / 20 stocks was run (72 runs), plus 20 random-pick draws for the key ones.
+To separate the two changes, every combination of filter (none / S&P 50-day / S&P 100-day / stock's own 50-day) × holding period (3 months / 1 year; 6 months added in the section above) × stop (none / 1 % / 2 %) × max 3 / 10 / 20 stocks was run, plus 20 random-pick draws for the key ones.
 
 | Point-in-time top 100, 1997-2026 (CAGR · max DD · Sharpe) | max 3 | **max 10** | max 20 |
 |---|---|---|---|

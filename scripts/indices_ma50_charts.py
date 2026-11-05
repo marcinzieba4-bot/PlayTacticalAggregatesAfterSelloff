@@ -30,7 +30,8 @@ ax = fig.add_subplot(gs[0, 0])
 lines = [("27_none_1year_nostop_3", MUTED, "-", "MACD only, 1-year hold", stat("none", "1 year", "no stop")),
          ("27_SP100d_1year_nostop_3", "#2a78d6", "-", "S&P>100d, 1 year, no stop (best)", stat("S&P 100d", "1 year", "no stop")),
          ("27_SP50d_3months_1pctstop_3", "#eb6834", "-", "S&P>50d, 3 months, 1% stop (asked)", stat("S&P 50d", "3 months", "1% stop")),
-         ("27_SP50d_3months_nostop_3", "#1baf7a", "-", "S&P>50d, 3 months, no stop", stat("S&P 50d", "3 months", "no stop")),
+         ("27_SP50d_6months_1pctstop_3", "#1baf7a", "-", "S&P>50d, 6 months, 1% stop", stat("S&P 50d", "6 months", "1% stop")),
+         ("27_SP50d_6months_nostop_3", "#c9a227", "-", "S&P>50d, 6 months, no stop", stat("S&P 50d", "6 months", "no stop")),
          ("EW_27", "#8a5cd6", ":", "Equal-weight 27, buy & hold", B["EW_27"]),
          ("SPX", INK2, ":", "S&P 500 (price)", B["SPX"])]
 for key, col, ls, lab, v in lines:
@@ -44,11 +45,11 @@ ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: 
 ax.set_ylabel("Equity, log (start \\$100k in 1990)")
 ax.xaxis.set_major_locator(mdates.YearLocator(4))
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-ax.set_title("Weekly-MACD long on 16 DM indices + 11 US sectors, max 3: 3-month vs 1-year hold", color=INK, loc="left", fontsize=10)
+ax.set_title("Weekly-MACD long on 16 DM indices + 11 US sectors, max 3: 3 / 6 / 12-month hold", color=INK, loc="left", fontsize=10)
 ax.legend(frameon=False, fontsize=8, loc="upper left")
 
 ax2 = fig.add_subplot(gs[0, 1])
-cols = {"3 months": "#eb6834", "1 year": "#2a78d6"}
+cols = {"3 months": "#eb6834", "6 months": "#1baf7a", "1 year": "#2a78d6"}
 mk = {"none": "o", "S&P 50d": "D", "S&P 100d": "s", "stock 50d": "^"}
 for _, r in V[V.universe == "27"].iterrows():
     filled = r["max_open"] == 3
@@ -68,7 +69,7 @@ ax2.legend(handles=h1 + h2 + h3, frameon=False, fontsize=7.5, loc="lower right",
 ax2.set_xlabel("Max drawdown, % (lower is better)")
 ax2.set_ylabel("CAGR, %")
 ax2.set_ylim(2.5, 10)
-ax2.set_title("All 48 runs on the 27: hold x filter x stop", color=INK, loc="left", fontsize=10)
+ax2.set_title("All 72 runs on the 27: hold x filter x stop", color=INK, loc="left", fontsize=10)
 fig.tight_layout()
 fig.savefig(os.path.join(RES, "indices_ma50.png"))
 print("chart written")

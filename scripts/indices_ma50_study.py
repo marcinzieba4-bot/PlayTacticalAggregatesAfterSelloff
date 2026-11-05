@@ -6,9 +6,10 @@ sectors, 1990-2026, price indices without dividends):
   * filter  : S&P 500 close above its 50-day average at the signal close; re-entries after a stop
               also only while it is on (checked at the previous close)
   * stop    : 1 % / 2 % below the entry E0, re-entry at E0 (any number of times)
-  * exits   : next open after a weekly MACD < 0 close, or after 3 months (first open >= entry + 91 days)
+  * exits   : next open after a weekly MACD < 0 close, or after 3 months (first open >= entry + 91 days);
+              6 months (+ 182 days) and 1 year (+ 365 days) for comparison
   * book    : max 3 positions (also 5), 1/N of equity each, cash-capped, compounding, 3 bps per side
-Grid: filter (none / S&P 50d / S&P 100d / asset's own 50d) x hold (3 months / 1 year) x stop (none / 1 % / 2 %)
+Grid: filter (none / S&P 50d / S&P 100d / asset's own 50d) x hold (3 / 6 months / 1 year) x stop (none / 1 % / 2 %)
 x max 3/5 on all 27; key variants also on the 16 DM indices and the 11 sectors alone; random pick
 among same-day signals (50 draws) for the key variants.
 
@@ -38,7 +39,8 @@ FILTERS, STOPS, HOLDS = sm.FILTERS, sm.STOPS, sm.HOLDS
 KEY = [("none", "1 year", "no stop"), ("none", "1 year", "1% stop"), ("S&P 100d", "1 year", "no stop"),
        ("S&P 100d", "1 year", "1% stop"), ("S&P 50d", "1 year", "1% stop"), ("S&P 50d", "3 months", "1% stop"),
        ("S&P 50d", "3 months", "no stop"), ("S&P 100d", "3 months", "1% stop"), ("none", "3 months", "1% stop"),
-       ("none", "3 months", "no stop")]
+       ("none", "3 months", "no stop"), ("S&P 50d", "6 months", "1% stop"), ("S&P 50d", "6 months", "no stop"),
+       ("S&P 100d", "6 months", "no stop"), ("S&P 100d", "6 months", "1% stop"), ("none", "6 months", "no stop")]
 
 
 def eq_stats(e):
@@ -120,7 +122,10 @@ def main():
     for key in [("27", "none", "1 year", "no stop", 3), ("27", "S&P 100d", "1 year", "no stop", 3),
                 ("27", "S&P 50d", "3 months", "1% stop", 3), ("27", "S&P 50d", "3 months", "no stop", 3),
                 ("27", "none", "3 months", "1% stop", 3), ("27", "S&P 50d", "1 year", "1% stop", 3),
-                ("27", "S&P 50d", "3 months", "1% stop", 5), ("DM 16", "S&P 50d", "3 months", "1% stop", 3)]:
+                ("27", "S&P 50d", "3 months", "1% stop", 5), ("DM 16", "S&P 50d", "3 months", "1% stop", 3),
+                ("27", "S&P 50d", "6 months", "1% stop", 3), ("27", "S&P 50d", "6 months", "no stop", 3),
+                ("27", "S&P 100d", "6 months", "no stop", 3), ("27", "S&P 100d", "1 year", "no stop", 5),
+                ("27", "S&P 100d", "6 months", "no stop", 5)]:
         res, camps = keep[key]
         name = "_".join(str(k) for k in key).replace(" ", "").replace("&", "").replace("%", "pct")
         res.to_csv(os.path.join(OUT, f"equity_{name}.csv"))

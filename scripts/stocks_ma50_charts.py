@@ -30,8 +30,8 @@ ax = fig.add_subplot(gs[0, 0])
 lines = [("PIT_none_1year_nostop_10", MUTED, "-", "MACD only, 1-year hold, 10 stocks", stat("none", "1 year", "no stop", 10)),
          ("PIT_SP100d_1year_1pctstop_10", "#2a78d6", "-", "S&P>100d, 1 year, 1% stop, 10 stocks", stat("S&P 100d", "1 year", "1% stop", 10)),
          ("PIT_SP50d_3months_1pctstop_10", "#eb6834", "-", "S&P>50d, 3 months, 1% stop, 10 stocks", stat("S&P 50d", "3 months", "1% stop", 10)),
-         ("PIT_SP50d_3months_1pctstop_20", "#1baf7a", "-", "S&P>50d, 3 months, 1% stop, 20 stocks", stat("S&P 50d", "3 months", "1% stop", 20)),
-         ("PIT_none_3months_1pctstop_20", "#c9a227", "-", "No filter, 3 months, 1% stop, 20 stocks", stat("none", "3 months", "1% stop", 20)),
+         ("PIT_SP50d_6months_1pctstop_10", "#1baf7a", "-", "S&P>50d, 6 months, 1% stop, 10 stocks", stat("S&P 50d", "6 months", "1% stop", 10)),
+         ("PIT_none_6months_1pctstop_20", "#c9a227", "-", "No filter, 6 months, 1% stop, 20 stocks", stat("none", "6 months", "1% stop", 20)),
          ("EW_top100_pit", "#8a5cd6", ":", "Equal-weight PIT top 100", B["EW_top100_pit"]),
          ("SP500TR", INK2, ":", "S&P 500 total return", B["SP500TR"])]
 for key, col, ls, lab, v in lines:
@@ -46,13 +46,13 @@ ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: 
 ax.set_ylabel("Equity, log (start \\$100k in 1997)")
 ax.xaxis.set_major_locator(mdates.YearLocator(4))
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-ax.set_title("Weekly-MACD long on point-in-time top-100 stocks: S&P 50-day filter + 3-month hold", color=INK, loc="left", fontsize=10)
+ax.set_title("Weekly-MACD long on point-in-time top-100 stocks: S&P 50-day filter, 3 / 6 / 12-month hold", color=INK, loc="left", fontsize=10)
 ax.legend(frameon=False, fontsize=8, loc="upper left")
 
 # right: return vs drawdown for the 1 % stop variants, by filter and holding period
 ax2 = fig.add_subplot(gs[0, 1])
 cols = {"none": MUTED, "S&P 50d": "#eb6834", "S&P 100d": "#2a78d6", "stock 50d": "#8a5cd6"}
-mk = {"3 months": "o", "1 year": "s"}
+mk = {"3 months": "o", "6 months": "^", "1 year": "s"}
 for _, r in V[(V.universe == "PIT") & (V.stop == "1% stop") & (V.max_open.isin([10, 20]))].iterrows():
     filled = r["max_open"] == 10
     ax2.scatter(-r["max_dd_%"], r["cagr_%"], marker=mk[r["hold"]], s=52, zorder=3, lw=1.3,

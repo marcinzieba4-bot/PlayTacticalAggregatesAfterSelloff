@@ -3,12 +3,13 @@
 Same as stocks_regime_study.py, with two changes asked for:
   * regime filter = S&P 500 close above its 50-day average (was 100-day); it gates the entry
     (checked at the signal close) and every re-entry after a stop (checked at the previous close);
-  * time exit after 3 months (first open on/after entry + 91 days) instead of 1 year.
+  * time exit after 3 months (first open on/after entry + 91 days) instead of 1 year; 6 months
+    (+ 182 days) is tested as well.
 Everything else is unchanged: a new weekly MACD up-phase (MACD and signal both > 0) is the signal,
 stop 1 % / 2 % below the entry E0 with re-entry at E0, exit at the next open after a weekly
 MACD < 0 close, 1/N of equity per stock, cash-capped, compounding, 3 bps per side.
 To separate the two effects every combination of filter (none / S&P 50d / S&P 100d / stock's own
-50d) x holding period (3 months / 1 year) x stop (none / 1 % / 2 %) x max 3/10/20 is run on the
+50d) x holding period (3 / 6 months / 1 year) x stop (none / 1 % / 2 %) x max 3/10/20 is run on the
 point-in-time S&P 500 top 100 (1997-2026), with a 20-draw random-pick check for the key variants
 and a reference run on today's top 100 (survivorship-biased, 1990-2026).
 
@@ -38,7 +39,7 @@ OUT = os.path.join(ROOT, "results", "stocks_ma50")
 CUTOFF = sr.CUTOFF
 FILTERS = {"none": None, "S&P 50d": "spx50", "S&P 100d": "spx100", "stock 50d": "own50"}
 STOPS = {"no stop": dict(mode="base"), "1% stop": dict(mode="sl_reentry", sl=0.01), "2% stop": dict(mode="sl_reentry", sl=0.02)}
-HOLDS = {"3 months": 91, "1 year": 365}
+HOLDS = {"3 months": 91, "6 months": 182, "1 year": 365}
 
 
 def regimes():
@@ -106,7 +107,9 @@ def main():
     rng = np.random.default_rng(11)
     key_variants = [("none", "1 year", "no stop"), ("S&P 50d", "3 months", "1% stop"), ("S&P 50d", "1 year", "1% stop"),
                     ("S&P 100d", "3 months", "1% stop"), ("S&P 100d", "1 year", "1% stop"),
-                    ("none", "3 months", "no stop"), ("none", "3 months", "1% stop")]
+                    ("none", "3 months", "no stop"), ("none", "3 months", "1% stop"),
+                    ("S&P 50d", "6 months", "1% stop"), ("S&P 100d", "6 months", "1% stop"), ("none", "6 months", "1% stop"),
+                    ("S&P 50d", "6 months", "no stop")]
     for draw in range(20):
         s2 = sig.assign(strength=rng.random(len(sig))).sort_values(["entry_date", "strength"], ascending=[True, False])
         for (f, h, sname), mo in itertools.product(key_variants, [10, 20]):
@@ -149,7 +152,9 @@ def main():
                 ("PIT", "S&P 50d", "3 months", "1% stop", 20), ("PIT", "S&P 100d", "1 year", "1% stop", 10),
                 ("PIT", "S&P 100d", "1 year", "1% stop", 20), ("PIT", "S&P 50d", "1 year", "1% stop", 10),
                 ("PIT", "S&P 100d", "3 months", "1% stop", 10), ("PIT", "S&P 50d", "3 months", "2% stop", 10),
-                ("PIT", "none", "3 months", "1% stop", 10), ("PIT", "none", "3 months", "1% stop", 20)]:
+                ("PIT", "none", "3 months", "1% stop", 10), ("PIT", "none", "3 months", "1% stop", 20),
+                ("PIT", "S&P 50d", "6 months", "1% stop", 10), ("PIT", "S&P 50d", "6 months", "1% stop", 20),
+                ("PIT", "none", "6 months", "1% stop", 20)]:
         res, camps = keep[key]
         name = "_".join(str(k) for k in key).replace(" ", "").replace("&", "").replace("%", "pct")
         res.to_csv(os.path.join(OUT, f"equity_{name}.csv"))
