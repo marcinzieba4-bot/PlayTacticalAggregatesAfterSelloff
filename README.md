@@ -151,6 +151,65 @@ Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_ch
 
 ---
 
+## DM indices + US sectors: S&P 500 **50-day** filter + **3-month** holding period (MACD signal, 1-2 % stop)
+
+Scripts: `scripts/indices_ma50_study.py` and `scripts/indices_ma50_charts.py`; results in `results/indices_ma50/`.
+
+Rules: the single-stock test above, applied to the original 27 instruments (16 DM indices + 11 SPDR sectors, 1990-2026, price indices):
+* buy a new weekly MACD up-phase at the next open only if the **S&P 500 closed above its 50-day average**;
+* 1 % (or 2 %) stop below the entry, with re-entry at the entry price only while the S&P 500 is above its 50-day average;
+* exit at the next open after a weekly MACD < 0 close or **after 3 months**;
+* max 3 positions (also 5), 1/N of equity each, compounding, 3 bps per side.
+
+Grid: filter (none / S&P 50-day / S&P 100-day / asset's own 50-day) × hold (3 months / 1 year) × stop (none / 1 % / 2 %) × max 3 / 5 = 48 runs. Key variants are also run on the DM indices and sectors alone, plus 50 random-pick draws.
+
+| 27 instruments, max 3, 1990-2026 (CAGR · max DD · Sharpe · avg invested) | 3-month hold | 1-year hold |
+|---|---|---|
+| **S&P > 50-day, 1 % stop (asked)** | **4.1 % · −14 % · 0.70 · 30 %** | 7.0 % · −26 % · 0.75 · 58 % |
+| S&P > 50-day, 2 % stop | 4.1 % · −18 % · 0.67 · 33 % | 6.8 % · −29 % · 0.71 · 60 % |
+| S&P > 50-day, no stop | 5.1 % · −20 % · 0.67 · 42 % | 8.1 % · −25 % · 0.77 · 66 % |
+| S&P > 100-day, 1 % stop | 4.2 % · −14 % · 0.73 · 29 % | 7.4 % · −21 % · 0.79 · 57 % |
+| **S&P > 100-day, no stop** | 4.8 % · −17 % · 0.66 · 39 % | **8.8 % · −20 % · 0.85 · 63 %** |
+| No filter, 1 % stop | 4.5 % · −19 % · 0.70 · 34 % | 7.6 % · −27 % · 0.78 · 61 % |
+| No filter, no stop | 5.3 % · −20 % · 0.66 · 45 % | 8.4 % · −24 % · 0.80 · 68 % |
+| Asset's own 50-day, 1 % stop | 4.7 % · −20 % · 0.73 · 33 % | 7.4 % · −30 % · 0.77 · 60 % |
+| *Max 5:* S&P > 50-day, 1 % stop / S&P > 100-day, no stop | 3.3 % · −12 % · 0.69 / 4.4 % · −12 % · 0.72 | 6.9 % · −21 % · 0.84 / **8.4 % · −18 % · 0.91** |
+| *Equal-weight 27 buy & hold / S&P 500 (price)* | *9.7 % · −52 % · 0.68 / 8.6 % · −57 % · 0.55* | |
+
+Random pick among same-day signals (50 draws, max 3, mean): asked 3.8 % / −15 % / 0.66; S&P 100-day, 1 year, no stop 8.7 % / −20 % / 0.85; S&P 50-day, 1 year, 1 % stop 6.8 % / −27 % / 0.73; no filter, 3 months, 1 % stop 4.2 % / −21 % / 0.66. The ranges are narrow (±0.3-0.5 %/yr), so the ranking doesn't depend on which signal gets the slot.
+
+| Sub-universe, max 3 (CAGR · max DD · Sharpe) | S&P > 50d, 3 months, 1 % stop | No filter, 3 months, 1 % stop | S&P > 100d, 1 year, no stop | No filter, 1 year, 1 % stop |
+|---|---|---|---|---|
+| 16 DM indices | 3.3 % · −12 % · 0.65 | 4.1 % · −14 % · 0.73 | 6.3 % · −25 % · 0.68 | **6.9 % · −20 % · 0.76** |
+| 11 US sectors | 1.6 % · −12 % · 0.36 | 2.1 % · −18 % · 0.42 | 4.6 % · −22 % · 0.53 | 3.3 % · −29 % · 0.42 |
+
+Selected calendar years (27, max 3):
+
+| Year | S&P 50d, 3 m, 1 % (asked) | S&P 50d, 3 m, no stop | S&P 100d, 1 y, no stop | MACD only, 1 y | EW 27 | S&P 500 |
+|---|---|---|---|---|---|---|
+| 2001 / 2002 | −2.7 / −2.9 % | −1.2 / +3.3 % | −10.6 / −5.2 % | −13.8 / −6.9 % | −17.0 / −24.1 % | −13.0 / −23.4 % |
+| 2008 | −5.8 % | −11.4 % | −6.7 % | −14.1 % | −35.5 % | −38.5 % |
+| 2009 | +9.8 % | +14.8 % | +24.0 % | +24.0 % | +29.8 % | +23.4 % |
+| 2020 | +20.8 % | +22.0 % | +10.8 % | +25.2 % | +8.7 % | +16.3 % |
+| 2022 | −3.7 % | −9.0 % | −5.5 % | −15.1 % | −10.8 % | −19.4 % |
+| 2023 / 2024 / 2025 | +7.8 / −1.3 / +2.1 % | +10.7 / +3.1 / +3.0 % | +9.8 / +26.2 / +12.5 % | +22.7 / +15.4 / +13.4 % | +19.4 / +16.3 / +18.9 % | +24.2 / +23.3 / +16.4 % |
+
+![indices ma50](results/indices_ma50/indices_ma50.png)
+
+**What to take from it**
+
+1. **On indices and sectors the 3-month hold roughly halves the return and does not improve the Sharpe.** The asked rules make **4.1 %/yr with a −14 % max drawdown and Sharpe 0.70**. The same filter with a 1-year hold makes 7.0 % / −26 % / 0.75, and the best index setup (S&P > 100-day, 1-year hold, no stop) makes **8.8 % / −20 % / 0.85**. Index trends are long and smooth. A 1-year trade averages +7 to +10 %, a 3-month trade only +2 to +3 %, and the asked book is in cash 70 % of the time. Single stocks were different: there, cutting at 3 months raised the Sharpe from 0.58 to 0.71 because stock up-trends fail more often.
+2. **The drawdown cut is real but bought with return.** −14 % is the lowest drawdown of any index variant with max 3; with max 5 it falls to about −11 to −12 %. Bad years are mild (2008 −5.8 %, 2022 −3.7 %), but so are good ones (2024 −1.3 %, 2025 +2.1 %). As a stand-alone strategy it earns less than half of buy-and-hold (9.7 % for the equal-weight 27). It only makes sense as a sleeve that leaves 70 % of the capital free for something else.
+3. **The 50-day average is again a little worse than the 100-day** (1-year hold: 8.1 % vs 8.8 % without stop, 7.0 % vs 7.4 % with the 1 % stop; random picks agree). Keep the 100-day.
+4. **The stops still don't help on the 27.** With a 1-year hold the 1 % stop costs 0.8-1.5 %/yr. With a 3-month hold it trims the drawdown (−20 → −14 %) but also the return (5.1 → 4.1 %). This matches every earlier index test; the 1 % stop only paid off on single stocks.
+5. **A new finding: 5 slots instead of 3 improves the best index setup.** S&P > 100-day, 1-year hold, no stop with **max 5 gives 8.4 %/yr, −18 % max DD and Sharpe 0.91**, the best risk-adjusted result in the project. With max 3 it gives 8.8 % / −20 % / 0.85.
+6. **DM indices alone:** the asked rules give 3.3 % / −12 %. The best DM-only version is still no filter, 1-year hold, 1 % stop (6.9 % / −20 % / 0.76); a US filter says less about Europe and Asia. **US sectors alone** are weak in every version (1.6-4.6 %/yr).
+7. **Current state (2026-11-03):** the S&P 500 is 1.6 % below its 50-day average, so the 50-day filter is **OFF**. The asked book is **flat**: all its trades have already hit the 3-month exit or the stop. The 100-day / 1-year book still holds XLB (+17.8 %) and the Nasdaq 100 (+12.4 %). These are backtest model states, not investment advice.
+
+Reproduce: `python scripts/indices_ma50_study.py && python scripts/indices_ma50_charts.py`.
+
+---
+
 ## 100 single US stocks: S&P 500 **50-day** filter + **3-month** holding period (MACD signal, 1-2 % stop)
 
 Scripts: `scripts/stocks_ma50_study.py` and `scripts/stocks_ma50_charts.py`; results in `results/stocks_ma50/`.
@@ -865,6 +924,8 @@ scripts/
                    100 single stocks (point-in-time and today's top 100): S&P or own-stock 100-day filter + MACD + 1-2 % stop -> results/stocks_regime/
   stocks_ma50_study.py / stocks_ma50_charts.py
                    same with the S&P 50-day filter and a 3-month hold (filter x hold x stop grid) -> results/stocks_ma50/
+  indices_ma50_study.py / indices_ma50_charts.py
+                   S&P 50-day filter + 3-month hold on the 27 DM indices + sectors (filter x hold x stop x max 3/5) -> results/indices_ma50/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py
