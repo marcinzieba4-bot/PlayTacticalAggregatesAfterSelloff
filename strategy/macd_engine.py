@@ -33,6 +33,7 @@ def simulate_campaign(x, e, mode="base", tp_days=365, tp_level=None, sl=0.01, st
                       sizing="mart", cost=3e-4):
     O, H, L, C, dates = x["O"], x["H"], x["L"], x["C"], x["dates"]
     macd, wkc = x["macd"], x["wk_close"]
+    exit_flag = x.get("exit_flag")  # optional bool array: True at a close -> close the campaign at the next open
     n = len(C)
     E0 = O[e]
     t_end = dates[e] + np.timedelta64(int(tp_days), "D") if tp_days else None
@@ -95,6 +96,10 @@ def simulate_campaign(x, e, mode="base", tp_days=365, tp_level=None, sl=0.01, st
                 if in_pos:
                     sell_all(o)
                 reason, done = "MACD < 0", True
+            elif exit_flag is not None and exit_flag[i - 1]:  # external regime exit, decided at the previous close
+                if in_pos:
+                    sell_all(o)
+                reason, done = "regime", True
             else:
                 T = target()
                 if in_pos and T is not None and o >= T:

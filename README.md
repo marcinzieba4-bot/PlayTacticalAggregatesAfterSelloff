@@ -97,6 +97,49 @@ Reproduce: `python scripts/macd_variants_study.py && python scripts/macd_variant
 
 ---
 
+## MACD long strategy only when the S&P 500 is above its 100-day average
+
+Scripts: `scripts/macd_regime_study.py` and `scripts/macd_regime_charts.py`; results in `results/macd_regime/`.
+
+Rules:
+* Same long rules on the 27 indices + sectors: a new weekly MACD up-phase is the signal, MACD < 0 is the stop, 1-year exit, max 3 positions, 1/3 of equity each.
+* **A signal is taken only if the S&P 500 closed above its 100-day simple moving average** on the signal day.
+* Variants:
+  * also sell everything when the S&P 500 closes below its average (checked daily or weekly);
+  * also re-enter when the S&P 500 recovers, buying assets whose MACD up-phase is still intact;
+  * 50- and 200-day averages;
+  * the mirror-image short leg (worst MACD profile, only while the S&P 500 is below its average).
+
+| 1990-2026, compounded | Trades | Win % | Avg trade | CAGR (in / out of sample) | Max DD | Sharpe |
+|---|---|---|---|---|---|---|
+| No filter (earlier rules) | 133 | 48 % | +7.8 % | 8.4 % (7.4 / 10.1) | −24 % | 0.80 |
+| **Buy only if S&P > 100-day avg** | 110 | **56 %** | **+9.7 %** | **8.8 %** (8.3 / 9.6) | **−20 %** | **0.85** |
+| Buy only if S&P > 200-day avg | 109 | 57 % | +9.7 % | 8.7 % (8.5 / 8.9) | −19 % | 0.86 |
+| Buy only if S&P > 50-day avg | 125 | 49 % | +8.0 % | 8.1 % | −25 % | 0.77 |
+| 100-day filter + sell all when S&P < avg (daily) | 188 | 51 % | +3.3 % | 5.2 % | −19 % | 0.67 |
+| 100-day filter + sell all when S&P < avg (weekly) | 168 | 54 % | +4.0 % | 5.5 % | −22 % | 0.67 |
+| 100-day filter + weekly sell + re-entry | 376 | 50 % | +3.0 % | 9.3 % (9.9 / 8.1) | −38 % | 0.79 |
+| 200-day filter + daily sell + re-entry | 355 | 44 % | +3.4 % | 9.7 % (10.0 / 9.1) | −34 % | 0.87 |
+| Worst-profile short only while S&P < 100-day avg | 280 | – | – | −2.5 % | −68 % | −0.16 |
+| 100-day filtered long + that regime short | – | – | – | 6.3 % | −29 % | 0.49 |
+| *S&P 500 buy & hold (price)* | – | – | – | 8.6 % | −57 % | 0.55 |
+| *S&P 500 held only while above its 100-day avg* | – | – | – | 4.7 % | −51 % | 0.47 |
+
+![regime](results/macd_regime/macd_regime.png)
+
+**What to take from it**
+
+1. **The S&P filter on entries is a real, if modest, improvement.** You skip signals that appear while the US market is in a correction. Trades drop from 133 to 110, the win rate rises from 48 % to 56 %, and the average trade from +7.8 % to +9.7 %. Overall: **8.8 %/yr, max DD −20 % (from −24 %), Sharpe 0.85 (from 0.80)**. The bad years get much milder: 2008 −6.7 % instead of −14.1 %, 2022 −5.5 % instead of −15.1 %. The cost is a smaller rebound year in 2020 (+10.9 % instead of +25.2 %).
+2. **It is robust to the length of the average.** 200 days gives the same result (8.7 %, −19 %, Sharpe 0.86); only the noisy 50-day average is worse. Out-of-sample (2013-2026) the filter is about neutral (9.6 % vs 10.1 %), so treat it as **risk control**, not a return booster.
+3. **Use it to filter entries, not to trigger exits.** Selling everything when the S&P dips below its average cuts CAGR to about 5 %. The S&P crossed its 100-day average 421 times in 36 years, so each position gets whipsawed out. 76-88 % of trades ended that way instead of by their own MACD stop. Even the S&P itself timed on its 100-day average only makes 4.7 %/yr. The asset's own weekly MACD is the better exit.
+4. **Re-entry adds return but doubles the drawdown** (−34 to −38 %), because it buys into trends late after each crossing. That is not worth it.
+5. **The short side doesn't improve with the regime either.** The worst-profile short, run only while the S&P is below its average, still loses 2.5 %/yr. Adding it to the long book drops the Sharpe to 0.49.
+6. **Current state (2026-11-03):** the S&P 500 at 7,569 is **0.7 % below its 100-day average (7,619)**. That is above the 200-day (7,316) and below the 50-day (7,693). **The filter is OFF: no new MACD buys until the S&P closes back above about 7,620.** The open positions (XLB +17.8 %, Nasdaq 100 +12.4 %) are kept under their own MACD stop and 1-year exit. The DAX trade of May 2026 was never taken in the filtered book, because the S&P was below its average at the time. These are backtest model states, not investment advice.
+
+Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_charts.py`.
+
+---
+
 ## Short leg on the WORST weekly-MACD profile (27 DM indices + US sectors)
 
 Scripts: `scripts/worst_short_study.py` and `scripts/worst_short_charts.py`; results in `results/worst_short/`.
@@ -658,6 +701,8 @@ scripts/
   pit_short_charts.py  charts for both
   worst_short_study.py / worst_short_charts.py
                    short leg on the worst weekly-MACD profile of the 27, contrarian test, overlays -> results/worst_short/
+  macd_regime_study.py / macd_regime_charts.py
+                   MACD long only when the S&P 500 is above its 100-day average (+ exits, re-entry, 50/200d) -> results/macd_regime/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py

@@ -61,7 +61,7 @@ def build(tickers, side):
 def short_sim(x, e, **kw):
     """Short campaign = long campaign on prices mirrored around the entry open E0."""
     E0 = x["O"][e]
-    m = {"dates": x["dates"], "wk_close": x["wk_close"], "macd": -x["macd"],
+    m = {"dates": x["dates"], "wk_close": x["wk_close"], "macd": -x["macd"], "exit_flag": x.get("exit_flag"),
          "O": np.maximum(2 * E0 - x["O"], 1e-6 * E0), "H": np.maximum(2 * E0 - x["L"], 1e-6 * E0),
          "L": np.maximum(2 * E0 - x["H"], 1e-6 * E0), "C": np.maximum(2 * E0 - x["C"], 1e-6 * E0)}
     r = _sim(m, e, **kw)

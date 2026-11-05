@@ -67,7 +67,7 @@ def build():
     return daily, panel, wkdate
 
 
-def rotation(daily, panel, wkdate, score, side="short", K=3, M=6, max_days=365, cond=True, contrarian=False):
+def rotation(daily, panel, wkdate, score, side="short", K=3, M=6, max_days=365, cond=True, contrarian=False, allow=None):
     """Weekly rotation into the K worst (side=short) or best (side=long) MACD profiles.
     contrarian=True with side='long': BUY the K worst profiles (downtrends), sell when MACD turns > 0."""
     sgn = -1 if side == "short" else 1
@@ -87,6 +87,11 @@ def rotation(daily, panel, wkdate, score, side="short", K=3, M=6, max_days=365, 
             continue
         sc = s.loc[p]
         valid = sc.notna()
+        if allow is not None and not bool(allow.get(p, False)):  # regime filter: flat while not allowed
+            for t in list(held):
+                orders.append((dd, t, "out"))
+                del held[t]
+            continue
         rank = sc.where(valid).rank(ascending=False)
         for t in list(held):
             if stop.loc[p, t] or rank.get(t, np.inf) > M or (dd - held[t]).days >= max_days or not valid[t]:

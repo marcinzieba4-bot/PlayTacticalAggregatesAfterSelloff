@@ -153,3 +153,12 @@ def test_macd_engine_pyramid_up():
     # units at 100, 101, 102.01, 103.03 -> 4 of 11 units, all out at the next open after the MACD < 0 close
     assert r["fills"] == 4 and r["reason"] == "open"
     assert r["notional"][1] == pytest.approx((1 / 11) * 103 * (1 / 100 + 1 / 101 + 1 / 102.01 + 1 / 103.0301), rel=1e-9)
+
+
+def test_macd_engine_regime_exit():
+    from strategy.macd_engine import simulate_campaign
+    x = _bars([(100, 101, 99, 100), (100, 102, 99, 101), (101, 103, 100, 102), (102, 104, 101, 103)])
+    x["exit_flag"] = np.array([False, True, False, False, False])   # regime off at bar 1's close
+    r = simulate_campaign(x, 0, mode="base", tp_days=None, tp_level=None, cost=0.0)
+    assert r["reason"] == "regime" and r["end"] == 2
+    assert r["ret"] == pytest.approx(101 / 100 - 1)                 # out at bar 2's open
