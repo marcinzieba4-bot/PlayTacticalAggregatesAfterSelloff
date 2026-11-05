@@ -34,6 +34,7 @@ def simulate_campaign(x, e, mode="base", tp_days=365, tp_level=None, sl=0.01, st
     O, H, L, C, dates = x["O"], x["H"], x["L"], x["C"], x["dates"]
     macd, wkc = x["macd"], x["wk_close"]
     exit_flag = x.get("exit_flag")  # optional bool array: True at a close -> close the campaign at the next open
+    reentry_ok = x.get("reentry_ok")  # optional bool array: re-entries (sl_reentry) only if True at the previous close
     n = len(C)
     E0 = O[e]
     t_end = dates[e] + np.timedelta64(int(tp_days), "D") if tp_days else None
@@ -109,7 +110,7 @@ def simulate_campaign(x, e, mode="base", tp_days=365, tp_level=None, sl=0.01, st
                     if in_pos and o <= stop_px:
                         sell_all(o)
                         in_pos, stops = False, stops + 1
-                    elif not in_pos and o >= E0:
+                    elif not in_pos and o >= E0 and (reentry_ok is None or reentry_ok[i - 1]):
                         buy(o, 1.0)
                         in_pos = True
                 elif mode == "ladder":
@@ -126,7 +127,7 @@ def simulate_campaign(x, e, mode="base", tp_days=365, tp_level=None, sl=0.01, st
             for a, b in zip(pts[:-1], pts[1:]):
                 if b > a:  # up-leg: re-entry buy-stop, then level TP
                     lo_ = a
-                    if mode == "sl_reentry" and not in_pos and lo_ < E0 <= b:
+                    if mode == "sl_reentry" and not in_pos and lo_ < E0 <= b and (reentry_ok is None or reentry_ok[i - 1]):
                         buy(E0, 1.0)
                         in_pos, lo_ = True, E0
                     if mode == "pyramid":

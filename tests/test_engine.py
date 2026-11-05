@@ -162,3 +162,17 @@ def test_macd_engine_regime_exit():
     r = simulate_campaign(x, 0, mode="base", tp_days=None, tp_level=None, cost=0.0)
     assert r["reason"] == "regime" and r["end"] == 2
     assert r["ret"] == pytest.approx(101 / 100 - 1)                 # out at bar 2's open
+
+
+def test_macd_engine_conditional_reentry():
+    from strategy.macd_engine import simulate_campaign
+    rows = [(100, 100.5, 98.5, 99), (99, 100.5, 98.5, 100), (100, 101, 99.5, 100.8), (100.8, 102, 100.5, 101.5)]
+    x = _bars(rows)
+    x["reentry_ok"] = np.array([True, False, True, True])         # S&P above its average at bar 0's close
+    r = simulate_campaign(x, 0, mode="sl_reentry", tp_days=None, tp_level=None, sl=0.01, cost=0.0)
+    # stopped on bar 0 at 99; bar 1 re-enters intraday at E0 = 100
+    assert r["stops"] == 1 and r["fills"] == 2 and r["notional"][1] > 0
+    x["reentry_ok"] = np.array([False, False, True, True])        # below its average at bar 0 and bar 1 closes
+    r2 = simulate_campaign(x, 0, mode="sl_reentry", tp_days=None, tp_level=None, sl=0.01, cost=0.0)
+    assert r2["stops"] == 1 and r2["fills"] == 2                   # re-entry waits until bar 3 (gap open above E0)
+    assert r2["notional"][1] == 0 and r2["notional"][2] == 0 and r2["notional"][3] > 0

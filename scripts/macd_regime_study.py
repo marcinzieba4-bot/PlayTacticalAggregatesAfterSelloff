@@ -98,10 +98,12 @@ def main():
     cal = cal[cal >= mv.START]
     rows, keep = [], {}
 
-    def go(label, n, filt, rexit, weekly, reentry, kw=None, universe=None):
+    def go(label, n, filt, rexit, weekly, reentry, kw=None, universe=None, cond_reentry=False):
         c, sma, on = spx_regime(n)
         sub = inst if universe is None else {t: inst[t] for t in universe}
         attach(sub, on, weekly)
+        for x in sub.values():  # 1 % stop re-entries only while the S&P 500 is above its average
+            x["reentry_ok"] = x["reg_on"] if cond_reentry else None
         sig = signals(sub, on, filt, reentry)
         res, camps = run(sub, sig, cal, rexit, kw)
         st = mv.stats(res, camps)
@@ -129,10 +131,15 @@ def main():
     go("1% SL: SPX>100d entry filter", 100, True, False, False, False, sl1)
     go("1% SL: SPX>200d entry filter", 200, True, False, False, False, sl1)
     go("2% SL: SPX>100d entry filter", 100, True, False, False, False, dict(mode="sl_reentry", sl=0.02))
+    go("1% SL: SPX>100d entry + re-entry filter", 100, True, False, False, False, sl1, None, True)
+    go("1% SL: SPX>200d entry + re-entry filter", 200, True, False, False, False, sl1, None, True)
+    go("2% SL: SPX>100d entry + re-entry filter", 100, True, False, False, False, dict(mode="sl_reentry", sl=0.02), None, True)
+    go("3% SL: SPX>100d entry + re-entry filter", 100, True, False, False, False, dict(mode="sl_reentry", sl=0.03), None, True)
     go("DM only: no filter", 100, False, False, False, False, None, dm)
     go("DM only: SPX>100d entry filter", 100, True, False, False, False, None, dm)
     go("DM only, 1% SL: no filter", 100, False, False, False, False, sl1, dm)
     go("DM only, 1% SL: SPX>100d entry filter", 100, True, False, False, False, sl1, dm)
+    go("DM only, 1% SL: SPX>100d entry + re-entry filter", 100, True, False, False, False, sl1, dm, True)
 
     # mirror short: worst-MACD-profile short only while S&P 500 < 100-day average
     daily, panel, wkdate = ws.build()
@@ -177,7 +184,8 @@ def main():
            "sma50": float(c.rolling(50).mean().iloc[-1]), "sma200": float(c.rolling(200).mean().iloc[-1])}
     summary = {"rules": __doc__, "variants": rows, "now": now, "runs": {}}
     for lab in ["no filter (earlier rules)", "SPX>100d: entry filter only", "SPX>100d: entry filter + daily exit", best_long,
-                "1% SL: SPX>100d entry filter", "1% SL: no filter", "DM only, 1% SL: SPX>100d entry filter"]:
+                "1% SL: SPX>100d entry filter", "1% SL: no filter", "DM only, 1% SL: SPX>100d entry filter",
+                "1% SL: SPX>100d entry + re-entry filter"]:
         res, camps = keep[lab]
         res.to_csv(os.path.join(OUT, f"equity_{lab.replace(' ', '_').replace('>', 'gt').replace(':', '').replace('+', 'plus')}.csv"))
         summary["runs"][lab] = {"equity_weekly": [[d.date().isoformat(), round(float(v), 2)]
