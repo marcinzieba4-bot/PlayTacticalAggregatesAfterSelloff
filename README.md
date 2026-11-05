@@ -151,6 +151,70 @@ Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_ch
 
 ---
 
+## Reinvestment, Kelly sizing vs the Calmar ratio, and the best index book + the best stock book combined
+
+Scripts: `scripts/combo_kelly_study.py` and `scripts/combo_kelly_charts.py`; results in `results/combo_kelly/`. T-bill yields (13-week, `^IRX`) are in `data/rates/IRX.csv`.
+
+**Are profits reinvested? Yes.** Every backtest in this repo compounds. Each new position gets 1/N of the *current* equity (capped by the cash that is actually free), so profits grow the next positions and losses shrink them. Open positions are not resized. Two conservative simplifications in the earlier sections: **idle cash earns nothing**, and no dividends are included (price indices; Yahoo's adjusted prices for stocks). Below, idle cash earns the T-bill and any borrowing costs T-bill + 1 %/yr.
+
+The books (all 1997-2026 here, so they share the stock data period):
+* **IDX5**: 27 DM indices + sectors, buy at the next open after a weekly MACD up-phase if the S&P 500 > its 100-day average, no stop, MACD < 0 exit, 1-year exit, max 5 (IDX3 = max 3).
+* **STK_W1**: point-in-time top-100 stocks, wait 1 month and buy if the MACD stayed > 0 and the S&P 500 > its 100-day average, 1 % stop with S&P-filtered re-entry, MACD < 0 exit, 11-month exit, max 10.
+* **STK_6M**: the same stocks, buy at once, no filter, 1 % stop, MACD < 0 exit, 6-month exit, max 20.
+
+| 1997-2026 (CAGR · max DD · **Calmar** · Sharpe · worst year) | Idle cash earns 0 (as before) | Idle cash earns T-bills |
+|---|---|---|
+| IDX5 (62 % invested on average) | 8.0 % · −18 % · 0.44 · 0.84 · −8 % | 8.9 % · −18 % · **0.49** · 0.92 · −8 % |
+| IDX3 | 8.8 % · −20 % · 0.44 · 0.81 · −11 % | 9.5 % · −18 % · **0.52** · 0.87 · −9 % |
+| STK_W1 (62 % invested) | 8.4 % · −18 % · 0.46 · 0.69 · −10 % | 9.4 % · −18 % · **0.52** · 0.75 · −8 % |
+| STK_6M (60 % invested) | 7.8 % · −25 % · 0.31 · 0.74 · −14 % | 8.7 % · −23 % · **0.38** · 0.83 · −12 % |
+| *S&P 500 (price) / S&P 500 total return* | *8.1 % · −57 % · 0.14 / 10.1 % · −55 % · 0.18* | |
+
+**Combined: best index book + best stock book** (idle cash earns T-bills; monthly rebalanced). Daily return correlation between the books: 0.59-0.64.
+
+| 1997-2026 | CAGR (in / out of sample) | Max DD | **Calmar** | Sharpe | Worst year |
+|---|---|---|---|---|---|
+| **IDX5 + STK_W1, 50/50** | **9.2 %** (8.9 / 9.6) | **−16 %** | **0.56** | 0.91 | −6.7 % |
+| **IDX3 + STK_W1, 50/50** | **9.6 %** (9.2 / 10.1) | **−16 %** | **0.61** | 0.90 | −6.0 % |
+| IDX5 + STK_6M, 50/50 | 8.9 % (7.3 / 10.8) | −17 % | 0.52 | 0.97 | −8.7 % |
+| Inverse-volatility weights (≈55/45) | about the same as 50/50 | | | | |
+| IDX5 + STK_W1, overlay (both books at 100 %, i.e. 2× the 50/50) | 15.0 % (13.8 / 16.3) | −31 % | 0.49 | 0.78 | −14.9 % |
+
+**Kelly and leverage.** Kelly sizing maximises the long-run growth rate. For a return stream it says: use leverage f* = excess mean / variance. These books have low volatility (9-13 %/yr) and Sharpe ratios around 0.75-0.95, so Kelly asks for a lot of leverage. Here L scales every position and the cash balance follows: below 1× the rest sits in T-bills, above 1× the excess is borrowed at T-bill + 1 %.
+
+| Kelly fraction f* (estimated 1997-2012 / full sample) | IDX5 | STK_W1 | STK_6M | IDX5 + STK_W1 50/50 | IDX5 + STK_6M 50/50 |
+|---|---|---|---|---|---|
+| Full Kelly leverage | 6.2× / 7.2× | 3.9× / 4.6× | 3.1× / 5.9× | 5.8× / 6.9× | 5.6× / 8.1× |
+
+IDX5 + STK_W1 50/50 at different sizes (full period; the out-of-sample part 2013-2026 behaves the same):
+
+| Size | Avg / max gross exposure | CAGR | Max DD | **Calmar** | Sharpe | Worst year |
+|---|---|---|---|---|---|---|
+| 0.5× | 31 / 51 % | 5.9 % | −8 % | **0.69** | 1.13 | −2.5 % |
+| **1× (no leverage)** | 62 / 101 % | **9.3 %** | **−16 %** | **0.56** | 0.91 | −6.7 % |
+| **1.45× = ¼ Kelly** | 90 / 147 % | **12.0 %** | −23 % | 0.52 | 0.83 | −10.4 % |
+| 2× | 124 / 203 % | 15.0 % | −31 % | 0.49 | 0.78 | −14.9 % |
+| 2.9× = ½ Kelly | 179 / 294 % | 19.1 % | −46 % | 0.42 | 0.73 | −22.2 % |
+| 5.8× = full Kelly | 359 / 588 % | 25.9 % | **−79 %** | 0.33 | 0.68 | −43.4 % |
+| 8× (over-Kelly) | 495 / 812 % | 23.5 % | −92 % | 0.26 | 0.66 | −56.8 % |
+
+Per-trade view: a simple Kelly per campaign (W − (1 − W)/R) is 44 % of capital for IDX5 (win rate 57 %, average win +22 % vs loss −6 %), 22 % for STK_W1 (win rate 36 %, +32 % vs −7 %) and 18 % for STK_6M. The books currently stake 20 %, 10 % and 5 % per position, i.e. roughly ¼ to ½ of per-trade Kelly. This view ignores that 5-20 positions are open at the same time and move together, which is why the portfolio Kelly above is the relevant number.
+
+![combo kelly](results/combo_kelly/combo_kelly.png)
+
+**What to take from it**
+
+1. **Kelly does not improve the Calmar ratio; it lowers it.** Calmar falls steadily as leverage rises, for every book: 0.69 at 0.5×, 0.56 at 1×, 0.42 at ½ Kelly and 0.33 at full Kelly for the combination. Leverage scales returns roughly linearly, but drawdowns grow faster (volatility drag and the compounding of losses). Kelly maximises *growth*, not return per unit of drawdown. Full Kelly here means −63 % to −85 % drawdowns (−79 % for the combination), and estimation error makes it worse in real life. Beyond full Kelly, growth itself falls (8×: 23.5 % with −92 %).
+2. **Calmar, taken alone, always says "less leverage"** (its maximum is near cash). So use it with a return target. Calmar is only raised by a better or more diversified strategy, not by sizing. That is what the combination does.
+3. **Combining the best index book with the best stock book is the best result in the project on a risk-adjusted basis.** IDX5 + STK_W1 50/50 makes **9.2 %/yr with −16 % max DD, Calmar 0.56, Sharpe 0.91 and a worst year of −6.7 %**. IDX3 + STK_W1 makes 9.6 % / −16 % / Calmar 0.61. Either book alone has a Calmar of 0.49-0.52, and the S&P 500 has 0.14-0.18. The diversification is real but limited (correlation about 0.6), because both books are long equities with US-led timing.
+4. **Sensible sizing, if you want more return: about ¼ Kelly (≈1.25-1.5×) on the combination.** That gives about **12 %/yr with −23 % max DD** (Calmar 0.52, worst year −10 %). That beats the S&P 500 total return (10.1 %, −55 %) on both return and drawdown, at an average gross exposure of 90 % (peaks around 150 %). ½ Kelly (≈2.9×) gives about 19 %/yr but −46 % drawdowns. That is index-like pain and needs real margin, so it isn't recommended. Full Kelly is not usable.
+5. **Crediting T-bills on idle cash adds about +0.7-1.0 %/yr** to every book, because they are only about 60 % invested. In practice, park the idle cash in T-bills or a money-market fund.
+6. Caveats: daily-rebalanced constant leverage, financing at T-bill + 1 %, no taxes, no margin calls or gap risk beyond what the daily data shows. The stock book and its parameters were selected from a large grid, so expect the live result to be somewhat below the backtest.
+
+Reproduce: `python scripts/combo_kelly_study.py && python scripts/combo_kelly_charts.py` (needs `data/rates/IRX.csv`).
+
+---
+
 ## Delayed entry: wait 2 months after the MACD signal, buy only if the MACD is still > 0, hold 10 months
 
 Scripts: `scripts/delayed_entry_study.py` (`indices`, `stocks`, `stocks-wait1m`) and `scripts/delayed_entry_charts.py`; results in `results/delayed_entry/`.
@@ -1036,6 +1100,8 @@ scripts/
                    S&P 50-day filter + 3-month hold on the 27 DM indices + sectors (filter x hold x stop x max 3/5) -> results/indices_ma50/
   delayed_entry_study.py / delayed_entry_charts.py
                    wait 1-3 months after the MACD signal, buy if the MACD stayed > 0, hold the rest of the year -> results/delayed_entry/
+  combo_kelly_study.py / combo_kelly_charts.py
+                   best index book + best stock book, T-bills on idle cash, Kelly / leverage vs Calmar -> results/combo_kelly/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py
