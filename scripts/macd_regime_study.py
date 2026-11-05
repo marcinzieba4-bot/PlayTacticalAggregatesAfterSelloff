@@ -82,11 +82,11 @@ def signals(inst, regime_on_d, filt=True, reentry=False):
     return s.sort_values(["entry_date", "strength"], ascending=[True, False]).reset_index(drop=True)
 
 
-def run(inst, sig, cal, regime_exit):
+def run(inst, sig, cal, regime_exit, kw=None):
     for x in inst.values():
         x["exit_flag"] = x["exit_off"] if regime_exit else None
     mv.MAX_OPEN = 3
-    res, camps = mv.run(inst, sig, cal, dict(mode="base"), 365, None)
+    res, camps = mv.run(inst, sig, cal, kw or dict(mode="base"), 365, None)
     return res, camps
 
 
@@ -98,11 +98,12 @@ def main():
     cal = cal[cal >= mv.START]
     rows, keep = [], {}
 
-    def go(label, n, filt, rexit, weekly, reentry):
+    def go(label, n, filt, rexit, weekly, reentry, kw=None, universe=None):
         c, sma, on = spx_regime(n)
-        attach(inst, on, weekly)
-        sig = signals(inst, on, filt, reentry)
-        res, camps = run(inst, sig, cal, rexit)
+        sub = inst if universe is None else {t: inst[t] for t in universe}
+        attach(sub, on, weekly)
+        sig = signals(sub, on, filt, reentry)
+        res, camps = run(sub, sig, cal, rexit, kw)
         st = mv.stats(res, camps)
         time_on = 100 * float(on[on.index >= mv.START].mean())
         rows.append({"variant": label, "sma": n, "entry_filter": filt, "regime_exit": rexit, "weekly_check": weekly,
@@ -120,6 +121,18 @@ def main():
         go(f"SPX>{n}d: entry filter + weekly exit", n, True, True, True, False)
         go(f"SPX>{n}d: filter + daily exit + re-entry", n, True, True, False, True)
         go(f"SPX>{n}d: filter + weekly exit + re-entry", n, True, True, True, True)
+
+    # with the 1 % stop + re-entry at the first entry price (27 instruments, and the 16 DM indices alone)
+    sl1 = dict(mode="sl_reentry", sl=0.01)
+    dm = [t for t, v in UNIVERSE.items() if v[1] == "DM index"]
+    go("1% SL: no filter", 100, False, False, False, False, sl1)
+    go("1% SL: SPX>100d entry filter", 100, True, False, False, False, sl1)
+    go("1% SL: SPX>200d entry filter", 200, True, False, False, False, sl1)
+    go("2% SL: SPX>100d entry filter", 100, True, False, False, False, dict(mode="sl_reentry", sl=0.02))
+    go("DM only: no filter", 100, False, False, False, False, None, dm)
+    go("DM only: SPX>100d entry filter", 100, True, False, False, False, None, dm)
+    go("DM only, 1% SL: no filter", 100, False, False, False, False, sl1, dm)
+    go("DM only, 1% SL: SPX>100d entry filter", 100, True, False, False, False, sl1, dm)
 
     # mirror short: worst-MACD-profile short only while S&P 500 < 100-day average
     daily, panel, wkdate = ws.build()
@@ -163,7 +176,8 @@ def main():
            "date": str(c.index[-1].date()), "dist_%": 100 * float(c.iloc[-1] / sma.iloc[-1] - 1),
            "sma50": float(c.rolling(50).mean().iloc[-1]), "sma200": float(c.rolling(200).mean().iloc[-1])}
     summary = {"rules": __doc__, "variants": rows, "now": now, "runs": {}}
-    for lab in ["no filter (earlier rules)", "SPX>100d: entry filter only", "SPX>100d: entry filter + daily exit", best_long]:
+    for lab in ["no filter (earlier rules)", "SPX>100d: entry filter only", "SPX>100d: entry filter + daily exit", best_long,
+                "1% SL: SPX>100d entry filter", "1% SL: no filter", "DM only, 1% SL: SPX>100d entry filter"]:
         res, camps = keep[lab]
         res.to_csv(os.path.join(OUT, f"equity_{lab.replace(' ', '_').replace('>', 'gt').replace(':', '').replace('+', 'plus')}.csv"))
         summary["runs"][lab] = {"equity_weekly": [[d.date().isoformat(), round(float(v), 2)]

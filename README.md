@@ -120,6 +120,12 @@ Rules:
 | 100-day filter + sell all when S&P < avg (weekly) | 168 | 54 % | +4.0 % | 5.5 % | −22 % | 0.67 |
 | 100-day filter + weekly sell + re-entry | 376 | 50 % | +3.0 % | 9.3 % (9.9 / 8.1) | −38 % | 0.79 |
 | 200-day filter + daily sell + re-entry | 355 | 44 % | +3.4 % | 9.7 % (10.0 / 9.1) | −34 % | 0.87 |
+| 1 % stop + re-entry, no filter | 133 | 43 % | +7.0 % | 7.6 % (6.8 / 8.9) | −27 % | 0.78 |
+| **1 % stop + re-entry, S&P > 100-day filter** | 110 | 51 % | +8.5 % | 7.7 % (7.3 / 8.5) | −21 % | 0.81 |
+| 1 % stop + re-entry, S&P > 200-day filter | 109 | 50 % | +8.6 % | 7.6 % (7.6 / 7.5) | **−17 %** | 0.81 |
+| 2 % stop + re-entry, S&P > 100-day filter | 110 | 51 % | +8.7 % | 7.9 % | −23 % | 0.81 |
+| *16 DM indices only:* no filter / 100-day filter | 125 / 110 | 46 / 50 % | | 6.9 % / 6.3 % | −23 / −25 % | 0.71 / 0.68 |
+| *16 DM indices only, 1 % stop:* no filter / 100-day filter | 125 / 110 | 41 / 44 % | | 6.9 % / 6.2 % | −20 / **−16.5 %** | 0.76 / 0.73 |
 | Worst-profile short only while S&P < 100-day avg | 280 | – | – | −2.5 % | −68 % | −0.16 |
 | 100-day filtered long + that regime short | – | – | – | 6.3 % | −29 % | 0.49 |
 | *S&P 500 buy & hold (price)* | – | – | – | 8.6 % | −57 % | 0.55 |
@@ -134,7 +140,8 @@ Rules:
 3. **Use it to filter entries, not to trigger exits.** Selling everything when the S&P dips below its average cuts CAGR to about 5 %. The S&P crossed its 100-day average 421 times in 36 years, so each position gets whipsawed out. 76-88 % of trades ended that way instead of by their own MACD stop. Even the S&P itself timed on its 100-day average only makes 4.7 %/yr. The asset's own weekly MACD is the better exit.
 4. **Re-entry adds return but doubles the drawdown** (−34 to −38 %), because it buys into trends late after each crossing. That is not worth it.
 5. **The short side doesn't improve with the regime either.** The worst-profile short, run only while the S&P is below its average, still loses 2.5 %/yr. Adding it to the long book drops the Sharpe to 0.49.
-6. **Current state (2026-11-03):** the S&P 500 at 7,569 is **0.7 % below its 100-day average (7,619)**. That is above the 200-day (7,316) and below the 50-day (7,693). **The filter is OFF: no new MACD buys until the S&P closes back above about 7,620.** The open positions (XLB +17.8 %, Nasdaq 100 +12.4 %) are kept under their own MACD stop and 1-year exit. The DAX trade of May 2026 was never taken in the filtered book, because the S&P was below its average at the time. These are backtest model states, not investment advice.
+6. **The 1 % stop with re-entry does not add value on top of the filter (27 instruments).** It costs about 1 %/yr: 7.7 % vs 8.8 %, with a similar drawdown (−21 % vs −20 %) and Sharpe 0.81 vs 0.85. That matches the earlier finding on these 27: the 1 % stop only helped on single stocks and on the DM indices alone. With the stricter 200-day filter it gives the **lowest drawdown, −17 %**, at 7.6 %/yr. On the 16 DM indices alone the 1 % stop still trims the drawdown (−20 %, or −16.5 % with the filter), but the S&P filter itself doesn't help there: 6.3 % vs 6.9 %/yr, and only 4.2 % out-of-sample. A US regime says less about Europe and Asia. In the stop variants, re-entries inside a campaign happen whatever the S&P is doing; only the first entry is filtered.
+7. **Current state (2026-11-03):** the S&P 500 at 7,569 is **0.7 % below its 100-day average (7,619)**. That is above the 200-day (7,316) and below the 50-day (7,693). **The filter is OFF: no new MACD buys until the S&P closes back above about 7,620.** The open positions (XLB +17.8 %, Nasdaq 100 +12.4 %) are kept under their own MACD stop and 1-year exit. The DAX trade of May 2026 was never taken in the filtered book, because the S&P was below its average at the time. These are backtest model states, not investment advice.
 
 Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_charts.py`.
 
