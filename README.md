@@ -151,6 +151,47 @@ Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_ch
 
 ---
 
+## Drawdowns: how deep, how long under water, and when
+
+Scripts: `scripts/drawdown_study.py` and `scripts/drawdown_charts.py`; results in `results/drawdowns/` (`episodes.csv` lists every drawdown episode). Same books as the section below, daily equity, idle cash in T-bills, 1997-2026 (the index books also 1990-2026). "Under water" = from a high-water mark until that high is regained.
+
+| 1997-2026 | Max DD (peak → trough → recovered) | **Longest time under water** | Days > 10 % below the high | Ulcer index | Now (2026-11-03) |
+|---|---|---|---|---|---|
+| Indices, max 5 | −18 % (Apr 2015 → Jun 2016 → Feb 2017) | **3.7 years** (Mar 2000 → Dec 2003, depth −14 %) | 15 % | 6.1 | −0.8 % |
+| Indices, max 3 | −18 % (Jul 2007 → Jul 2009 → Oct 2009) | 3.3 years (Sep 2000 → Dec 2003, −16 %) | 17 % | 6.9 | −2.4 % |
+| Stocks, wait 1 m + S&P > 100d + 1 % stop | −18 % (Feb 2020 → Jun 2020 → Nov 2020) | 3.2 years (Aug 2000 → Oct 2003, −13 %) | 16 % | 6.6 | −8.9 % |
+| Stocks, 6 m hold + 1 % stop | −23 % (Dec 2000 → Feb 2003 → Nov 2005) | **4.9 years** (Dec 2000 → Nov 2005, −23 %) | 18 % | 7.3 | −3.6 % |
+| **50/50 indices (max 5) + stocks (wait 1 m)** | **−16 %** (Feb 2020 → Jun 2020 → Nov 2020) | **3.1 years** (Aug 2000 → Oct 2003, −12 %) | **10 %** | **5.6** | −4.5 % |
+| 50/50 indices (max 3) + stocks (wait 1 m) | −16 % (Feb 2020 → Jun 2020 → Sep 2020) | 3.1 years (Sep 2000 → Oct 2003, −13 %) | 12 % | 5.9 | −5.2 % |
+| 50/50 at ¼ Kelly (1.45×) | −23 % (Feb 2020 → Jun 2020 → Nov 2020) | 3.3 years (Aug 2000 → Dec 2003, −20 %) | 25 % | 8.6 | −6.8 % |
+| *S&P 500 (price)* | *−57 % (Oct 2007 → Mar 2009 → Mar 2013)* | ***7.2 years*** *(Mar 2000 → May 2007, −49 %)* | *42 %* | *17.2* | *−3.2 %* |
+
+The five deepest drawdowns of the 50/50 combination:
+
+| # | Depth | Peak → trough → recovered | Time under water | What happened |
+|---|---|---|---|---|
+| 1 | −16.4 % | 19 Feb 2020 → 11 Jun 2020 → 24 Nov 2020 | 9 months | Covid crash: too fast for a weekly MACD exit, then whipsaws on re-entry in May-June |
+| 2 | −14.2 % | 19 Jul 2007 → 8 Jul 2009 → 16 Sep 2009 | 2.2 years | Global financial crisis: a slow bleed of stopped trades; the filter kept the book mostly in cash during the crash itself |
+| 3 | −13.8 % | 28 Apr 2011 → 8 Aug 2011 → 4 Oct 2012 | 1.4 years | Euro crisis / US downgrade, the August 2011 gap down |
+| 4 | −12.4 % | 31 Aug 2000 → 24 Jul 2002 → 6 Oct 2003 | **3.1 years** (the longest) | Dot-com bust: shallow but long; few new signals and small losses on each rally attempt |
+| 5 | −11.9 % | 23 Jun 2015 → 27 Jun 2016 → 15 Feb 2017 | 1.7 years | China devaluation / oil crash / Brexit vote: choppy, trendless market, repeated whipsaws |
+
+Worst drawdown inside the classic stress periods (50/50 combination vs S&P 500): dot-com bust −12 % vs −49 %, financial crisis −9 % vs −57 %, euro crisis 2011 −14 % vs −19 %, 2015-16 −10 % vs −14 %, Q4 2018 −10 % vs −20 %, Covid −16 % vs −34 %, 2022 −4 % vs −25 %.
+
+![drawdowns](results/drawdowns/drawdowns.png)
+
+**What to take from it**
+
+1. **The longest time under water is about 3 years for every book (3.1 years for the combination): August 2000 to October 2003.** The worst stock version (6-month hold) needed 4.9 years. The S&P 500 needed 7.2 years for the same bust (2000-2007), then 5.5 years after 2007 (to March 2013).
+2. **The deepest drawdowns don't come in the big bear markets.** They come in **fast shocks and choppy markets**: Covid 2020 (−16 %), August 2011 (−14 %) and 2015-16 (−12 %). In the long bear markets of 2000-02 and 2008 the weekly MACD exit and the S&P filter take the book to cash early. Losses stay small (−9 % to −14 %), but it takes years to make a new high because few new trends start.
+3. **Typical pattern:** the strategy is more than 10 % below its high on only 10 % of days, against 42 % for the S&P 500. Nine episodes in 30 years went deeper than −10 %, and none deeper than −16.4 %.
+4. **¼ Kelly leverage (1.45×) deepens the drawdowns (−23 %) without shortening them** (3.3 years). Leverage scales the depth, not the recovery time.
+5. **Practical:** be prepared to go 2-3 years without a new equity high even with this low-drawdown setup, especially after a market top. The 2000-03 and 2007-09 episodes would test discipline, even at −12 to −14 %. Judge the strategy over a full cycle, not over one or two years. Current drawdown (3 Nov 2026): −4.5 % for the combination, −8.9 % for the stock book.
+
+Reproduce: `python scripts/drawdown_study.py && python scripts/drawdown_charts.py`.
+
+---
+
 ## Reinvestment, Kelly sizing vs the Calmar ratio, and the best index book + the best stock book combined
 
 Scripts: `scripts/combo_kelly_study.py` and `scripts/combo_kelly_charts.py`; results in `results/combo_kelly/`. T-bill yields (13-week, `^IRX`) are in `data/rates/IRX.csv`.
@@ -1102,6 +1143,8 @@ scripts/
                    wait 1-3 months after the MACD signal, buy if the MACD stayed > 0, hold the rest of the year -> results/delayed_entry/
   combo_kelly_study.py / combo_kelly_charts.py
                    best index book + best stock book, T-bills on idle cash, Kelly / leverage vs Calmar -> results/combo_kelly/
+  drawdown_study.py / drawdown_charts.py
+                   drawdown depth, dates and time under water of the best books and the combination -> results/drawdowns/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py
