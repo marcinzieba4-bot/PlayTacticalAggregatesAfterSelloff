@@ -151,6 +151,72 @@ Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_ch
 
 ---
 
+## Delayed entry: wait 2 months after the MACD signal, buy only if the MACD is still > 0, hold 10 months
+
+Scripts: `scripts/delayed_entry_study.py` (`indices`, `stocks`, `stocks-wait1m`) and `scripts/delayed_entry_charts.py`; results in `results/delayed_entry/`.
+
+Rules:
+* **Signal** as always: a new weekly MACD up-phase (MACD and signal line both turn > 0).
+* **Wait 2 months.** At the first weekly close at least 61 days after the signal, take the trade only if the weekly MACD line stayed **> 0 on every weekly close since the signal**. If it dipped below 0, the signal is dropped. A stricter variant also requires the price to be above the signal-day close.
+* **Entry** at the next open (E0). **Stop as usual:** 1 % (or 2 %) below E0 with re-entry at E0. A weekly close with MACD < 0 means sell at the next open. **Time exit after 10 months** (first open ≥ entry + 304 days), so about 12 months after the signal in total.
+* Filters: none / S&P 500 above its 50- or 100-day average (at the entry decision and before every re-entry). Sensitivity: wait 1 month + hold 11 months, and wait 3 months + hold 9 months.
+* Baseline: the earlier rules (buy at the next open after the signal, hold up to 12 months).
+
+How many signals survive the wait, and what happens meanwhile (buy-and-hold returns, before any stops):
+
+| | Kept after 1 m / 2 m | Move during the wait (kept) | Move during the wait (dropped) | 12 m from the signal: kept / dropped |
+|---|---|---|---|---|
+| 27 indices + sectors | 87 % / 82 % | +2.1 % / **+3.5 %** | −5.0 % / −4.7 % | +11.7 % / −1.3 % (2 m) |
+| PIT top-100 stocks | 86 % / 78 % | +2.6 % / **+5.2 %** | −9.4 % / −9.8 % | +16.0 % / −3.8 % (2 m) |
+
+The wait does separate good signals from bad ones. But you pay for it with the move you miss before you are in (+3.5 % on indices and +5.2 % on stocks for a 2-month wait).
+
+**27 DM indices + US sectors, 1990-2026** (CAGR · max DD · Sharpe; random-pick means are within ±0.3 %/yr):
+
+| | max 3 | max 5 |
+|---|---|---|
+| *Buy at once, hold 12 m, no stop (original rules)* | *8.4 % · −24 % · 0.80* | *7.5 % · −25 % · 0.78* |
+| *Buy at once, S&P > 100d, hold 12 m, no stop (best)* | ***8.8 % · −20 % · 0.85*** | ***8.4 % · −18 % · 0.91*** |
+| **Wait 2 m, hold 10 m, 1 % stop (asked)** | **4.2 % · −34 % · 0.50** | 4.1 % · −29 % · 0.55 |
+| Wait 2 m, hold 10 m, no stop | 5.1 % · −35 % · 0.54 | 5.3 % · −30 % · 0.61 |
+| Wait 2 m, S&P > 100d, no stop | 5.9 % · −25 % · 0.64 | 5.8 % · −18 % · 0.69 |
+| Wait 2 m, S&P > 50d, 1 % stop | 3.9 % · −27 % · 0.49 | 3.8 % · −20 % · 0.56 |
+| Wait 2 m + price above the signal, 1 % stop | 3.8 % · −33 % · 0.47 | 3.7 % · −26 % · 0.52 |
+| Wait 1 m, hold 11 m: no filter / S&P > 50d, no stop | 5.9 % · −34 % · 0.57 / 6.4 % · −21 % · 0.64 | |
+| Wait 3 m, hold 9 m: no filter, 1 % stop | 4.1 % · −29 % · 0.51 | |
+
+**Point-in-time top-100 US stocks, 1997-2026** (CAGR · max DD · Sharpe; random-pick mean in brackets):
+
+| | 10 stocks | 20 stocks |
+|---|---|---|
+| *Buy at once, 1 % stop, hold 12 m* | *6.8 % · −45 % · 0.53 (7.2 % · −40 % · 0.56)* | *8.0 % · −36 % · 0.67 (7.8 % · −32 % · 0.66)* |
+| **Wait 2 m, 1 % stop, hold 10 m (asked)** | **7.7 % · −32 % · 0.63** (6.9 % · −30 % · 0.58) | 6.5 % · −25 % · 0.62 (6.1 % · −27 % · 0.59) |
+| Wait 2 m, no stop | 7.4 % · −47 % · 0.52 (7.2 % · −45 % · 0.52) | 6.0 % · −34 % · 0.48 |
+| Wait 2 m, S&P > 50d, 1 % stop | 4.8 % · −26 % · 0.49 (5.7 % · −29 % · 0.56) | 4.7 % · −18 % · 0.53 |
+| Wait 2 m, S&P > 100d, 1 % stop | 5.8 % · −20 % · 0.56 | 5.1 % · −16 % · 0.55 |
+| Wait 2 m + price above the signal, 1 % stop | 6.9 % · −29 % · 0.61 | 6.5 % · −20 % · 0.63 |
+| Wait 3 m, hold 9 m, 1 % stop | 5.6 % · −29 % · 0.49 | |
+| **Wait 1 m, hold 11 m, S&P > 100d, 1 % stop** | **8.4 % · −18 % · 0.70** (**8.2 %** · −21 % · 0.71; range 7.4-9.1 %) | 7.0 % · −21 % · 0.65 (7.1 % · −19 % · 0.68) |
+| Wait 1 m, hold 11 m, S&P > 100d, no stop | 9.9 % · −33 % · 0.68 (9.6 % · −33 % · 0.69) | 8.2 % · −29 % · 0.63 |
+| *Buy at once, 1 % stop, hold 6 m (previous best balance)* | *7.9 % · −36 % · 0.66* | *7.8 % · −25 % · 0.76 (7.4 % · −25 % · 0.73)* |
+| *Equal-weight PIT top 100 / S&P 500 TR* | *12.8 % · −58 % · 0.67 / 10.1 % · −55 % · 0.60* | |
+
+Selected years, stocks, 10 stocks: buy at once (1 % stop, 12 m) / wait 2 m (1 % stop) / wait 1 m + S&P > 100d (1 % stop): 2008 −20 / −22 / **−6 %**, 2009 +12 / +10 / +20 %, 2022 −12 / −22 / −10 %, 2024 +3 / +19 / +27 %. Indices, max 3: original / wait 2 m (1 % stop): 2009 +24 / +7 %, 2020 +25 / +9 %, 2023 +23 / −5 %.
+
+![delayed entry](results/delayed_entry/delayed_entry.png)
+
+**What to take from it**
+
+1. **On DM indices + sectors the 2-month wait clearly hurts:** 4.2 %/yr, −34 % max DD and Sharpe 0.50, against 8.4 % / −24 % / 0.80 for the original rules. Every filter, stop and size combination is worse than buying at once. Index MACD signals rarely fail (82 % survive the wait), so the confirmation adds little. The 3.5 % you miss is a large part of the trend, and later entries sit closer to the next top, which is why even the drawdown gets worse.
+2. **On single stocks the 2-month wait is roughly neutral.** The asked version (1 % stop) makes 7.7 % / −32 % / 0.63 with 10 stocks; on random picks that is 6.9 % / −30 % / 0.58. Buying at once gives 7.2 % / −40 % / 0.56. So it cuts the drawdown by about 10 points at about the same return. With 20 stocks it is worse than buying at once (6.1 % vs 7.8 %). Requiring the price to be up as well doesn't help, and a 3-month wait is worse.
+3. **A shorter wait works better on stocks: wait 1 month + S&P > 100-day filter + 1 % stop + hold 11 months.** With 10 stocks it makes **8.4 %/yr, max DD −18 %, Sharpe 0.70**. Random picks give 8.2 % (7.4-9.1 %) / −21 % / 0.71, and it is consistent in and out of sample (7.8 / 9.1 %). That is the best return-to-drawdown of all the stock books tested. One month is enough to drop the stock signals that fail quickly (they lose −9 % in that month) while giving up only +2.6 % on the good ones. Caveat: it came out of a large grid of variants, so treat it as a candidate to keep watching, not a proven edge. On indices the same 1-month wait does not help (5.9-6.4 %/yr).
+4. **Nothing here beats buy-and-hold on return.** The equal-weight top 100 makes 12.8 % and the S&P 500 10.1 %. The useful result is drawdowns of −18 to −25 % against −55 % for the index.
+5. **Current state (2026-11-03):** for the asked stock rule (no filter) 11 recent signals are still in their 2-month wait with the MACD still > 0, and each is bought if that still holds at its check date: PLTR, SMCI and QCOM (from 11 Nov), CRM (18 Nov), NOW (25 Nov), DIS (2 Dec), META (9 Dec), PG and ABT (23 Dec), ACN and LIN (30 Dec). The wait-1-month S&P > 100-day book holds MRK (+37 %), UNP (+36 %), DELL (+109 %), JPM (+9 %) and PFE (+4 %). The S&P is below its 100-day average, so it makes no new buys for now. The asked index book holds only XLK (−7 %). These are backtest model states, not investment advice.
+
+Reproduce: `python scripts/delayed_entry_study.py indices && python scripts/delayed_entry_study.py stocks && python scripts/delayed_entry_study.py stocks-wait1m && python scripts/delayed_entry_charts.py`.
+
+---
+
 ## Holding period 3 vs **6** vs 12 months (S&P 500 50-day filter, MACD signal, 1 % stop)
 
 Scripts: the same `scripts/indices_ma50_study.py` and `scripts/stocks_ma50_study.py`, now with a 6-month hold (time exit at the first open ≥ entry + 182 days) in the grid; results in `results/indices_ma50/` and `results/stocks_ma50/`. Everything else is unchanged: the weekly MACD up-phase signal, buys and re-buys only while the S&P 500 is above its 50-day average, the 1 % stop with re-entry at the entry price, and the exit after a weekly MACD < 0 close. After a time exit an asset can only be bought again on a new MACD up-phase.
@@ -968,6 +1034,8 @@ scripts/
                    same with the S&P 50-day filter and a 3-month hold (filter x hold x stop grid) -> results/stocks_ma50/
   indices_ma50_study.py / indices_ma50_charts.py
                    S&P 50-day filter + 3-month hold on the 27 DM indices + sectors (filter x hold x stop x max 3/5) -> results/indices_ma50/
+  delayed_entry_study.py / delayed_entry_charts.py
+                   wait 1-3 months after the MACD signal, buy if the MACD stayed > 0, hold the rest of the year -> results/delayed_entry/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py
