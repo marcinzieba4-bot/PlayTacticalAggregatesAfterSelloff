@@ -151,6 +151,73 @@ Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_ch
 
 ---
 
+## 100 single US stocks: S&P 500 **50-day** filter + **3-month** holding period (MACD signal, 1-2 % stop)
+
+Scripts: `scripts/stocks_ma50_study.py` and `scripts/stocks_ma50_charts.py`; results in `results/stocks_ma50/`.
+
+Rules: same as the section below (point-in-time S&P 500 top 100, weekly MACD up-phase signal, 1 % / 2 % stop with re-entry at the entry price, exit at the next open after a weekly MACD < 0 close, 1/N of equity per stock), with two changes:
+* the regime filter is the **S&P 500 above its 50-day average** (was 100-day). It gates the entry and every re-entry after a stop;
+* the **time exit is after 3 months** (the first open ≥ entry + 91 days; was 1 year). After a time exit the stock can only be bought again on a new MACD up-phase.
+
+To separate the two changes, every combination of filter (none / S&P 50-day / S&P 100-day / stock's own 50-day) × holding period (3 months / 1 year) × stop (none / 1 % / 2 %) × max 3 / 10 / 20 stocks was run (72 runs), plus 20 random-pick draws for the key ones.
+
+| Point-in-time top 100, 1997-2026 (CAGR · max DD · Sharpe) | max 3 | **max 10** | max 20 |
+|---|---|---|---|
+| **S&P > 50-day, 3 months, 1 % stop (asked)** | 4.8 % · −38 % · 0.42 | **6.1 % · −24 % · 0.69** | 3.7 % · −19 % · 0.58 |
+| S&P > 50-day, 3 months, 2 % stop | 3.1 % · −54 % · 0.28 | 5.2 % · −30 % · 0.58 | 3.0 % · −26 % · 0.45 |
+| S&P > 50-day, 3 months, no stop | 5.9 % · −58 % · 0.39 | 7.9 % · −38 % · 0.65 | 4.6 % · −34 % · 0.50 |
+| S&P > 50-day, 1 year, 1 % stop | 3.0 % · −43 % · 0.27 | 6.6 % · −32 % · 0.56 | 6.4 % · −24 % · 0.61 |
+| S&P > 100-day, 3 months, 1 % stop | 5.5 % · −35 % · 0.45 | 6.5 % · −26 % · **0.71** | 4.7 % · **−15 %** · 0.68 |
+| *S&P > 100-day, 1 year, 1 % stop (previous best)* | 6.3 % · −50 % · 0.41 | *8.4 % · −34 % · 0.66* | 6.7 % · −24 % · 0.61 |
+| **No filter, 3 months, 1 % stop** | 9.7 % · −42 % · 0.64 | 7.5 % · −29 % · **0.73** | 5.8 % · −22 % · **0.76** |
+| No filter, 3 months, no stop | **10.7 %** · −55 % · 0.58 | **8.8 %** · −39 % · 0.64 | 6.4 % · −40 % · 0.60 |
+| Stock's own 50-day, 3 months, 1 % stop | 8.3 % · −53 % · 0.58 | 5.9 % · −31 % · 0.61 | 5.0 % · −24 % · 0.69 |
+| *MACD only, no filter, no stop, 1 year* | 8.7 % · −54 % · 0.47 | *6.8 % · −46 % · 0.47* | 8.3 % · −43 % · 0.59 |
+| *Equal-weight PIT top 100 / S&P 500 TR* | | *12.8 % · −58 % · 0.67 / 10.1 % · −55 % · 0.60* | |
+
+Average invested: 3-month versions with the 1 % stop are only **33-61 % invested** (stops plus a short hold leave cash idle), against 62-77 % for 1-year holds with the stop and 86-93 % for MACD only.
+
+**Robustness: random pick among same-day signals, 20 draws** (mean, 5-95 % range):
+
+| | 10 stocks: CAGR | Max DD | Sharpe | 20 stocks: CAGR | Max DD | Sharpe |
+|---|---|---|---|---|---|---|
+| **S&P 50-day, 3 months, 1 % stop** | 5.7 % (5.3-6.1) | −27 % | 0.66 | 3.8 % (3.7-3.9) | −19 % | 0.59 |
+| S&P 100-day, 3 months, 1 % stop | 6.3 % (5.9-6.8) | −25 % | 0.71 | 4.7 % (4.6-4.9) | **−15 %** | 0.70 |
+| S&P 50-day, 1 year, 1 % stop | 5.8 % (4.8-6.6) | −38 % | 0.51 | 6.3 % (6.0-6.6) | −27 % | 0.60 |
+| S&P 100-day, 1 year, 1 % stop | 7.0 % (6.2-7.6) | −35 % | 0.58 | 6.5 % (6.0-7.0) | −26 % | 0.61 |
+| **No filter, 3 months, 1 % stop** | 6.9 % (6.4-7.6) | −26 % | 0.70 | 5.9 % (5.7-6.0) | −23 % | **0.77** |
+| No filter, 3 months, no stop | **8.5 %** (8.0-9.4) | −38 % | 0.63 | 6.4 % (6.2-6.7) | −41 % | 0.61 |
+| MACD only, 1 year, no stop | 7.4 % (6.3-8.6) | −47 % | 0.50 | 7.8 % (7.0-8.2) | −42 % | 0.57 |
+
+Selected calendar years (10 stocks unless noted):
+
+| Year | S&P 50d, 3 m, 1 % | No filter, 3 m, 1 % | S&P 100d, 1 y, 1 % | MACD only, 1 y | EW top 100 | S&P 500 TR |
+|---|---|---|---|---|---|---|
+| 2001 / 2002 | −3.5 / −10.1 % | −15.9 / −12.5 % | −7.6 / −11.5 % | −27.1 / −24.2 % | −5.8 / −22.5 % | −10.9 / −23.4 % |
+| 2008 | **−3.3 %** | −6.0 % | −5.3 % | −29.6 % | −41.1 % | −39.6 % |
+| 2009 | +2.0 % | +5.9 % | +16.9 % | +15.6 % | +53.9 % | +32.2 % |
+| 2020 | +16.7 % | +17.0 % | +11.3 % | +16.0 % | +18.7 % | +16.4 % |
+| 2022 | −8.9 % | **−4.4 %** | −17.8 % | −17.0 % | −13.8 % | −18.1 % |
+| 2023 / 2024 / 2025 | +7.1 / +6.6 / +20.5 % | +12.2 / +10.3 / +18.4 % | +11.0 / +14.0 / +9.9 % | +5.6 / +5.8 / +3.7 % | +24.2 / +18.9 / +21.9 % | +26.3 / +26.9 / +17.5 % |
+
+On today's top 100 (biased, 1990-2026, 10 stocks) the asked rules make 9.7 %/yr with −23 % DD and Sharpe 1.04, against 16.6 % / −23 % / 1.11 with the 100-day filter and a 1-year hold. A 3-month hold cuts off the long winning trends that this biased list is full of.
+
+![stocks ma50](results/stocks_ma50/stocks_ma50.png)
+
+**What to take from it**
+
+1. **The asked version (S&P > 50-day, 3-month hold, 1 % stop) is a low-risk, low-return book.** With 10 stocks it makes **6.1 %/yr with a −24 % max drawdown and Sharpe 0.69**. The random-pick mean is 5.7 % / −27 % / 0.66, with a narrow range: more trades means less luck. That is a better drawdown and Sharpe than the 1-year version, but about 2 %/yr less return than the earlier best (8.4 %; 7.0 % on random picks). With 20 stocks it falls to 3.7 %/yr, because the money sits in cash about two thirds of the time.
+2. **The 3-month hold drives the result; the 50-day average doesn't.** For the same filter and stop, going from 1 year to 3 months cuts the drawdown by about 10 points (−35 → −25 % at 10 stocks on random picks) and raises the Sharpe from about 0.58 to 0.71. It costs 0.5-1 %/yr. The 3-month exit takes profits before the MACD turns, and over 70 % of trades end on the time exit. It also misses the big rebound years: 2009 made only +2 % against +17 % with a 1-year hold.
+3. **The 50-day average is slightly worse than the 100-day in every pairing:** 6.1 vs 6.5 %/yr and Sharpe 0.69 vs 0.71 at 3 months, and 6.6 vs 8.4 %/yr at 1 year. The random picks agree. The 50-day line is probably too fast: it is crossed more often, so more good re-entries are blocked. If you use a market filter, keep the 100-day.
+4. **With a 3-month hold and a 1 % stop the S&P filter is almost redundant.** The best risk-adjusted stock book in this whole project is **no filter, 3-month hold, 1 % stop**. It makes 7.5 %/yr / −29 % / Sharpe 0.73 with 10 stocks, and **5.8 %/yr / −22 % / Sharpe 0.76** with 20; random-pick Sharpe is 0.70 and 0.77. The short hold plus the 1 % stop already keep you out of bear markets (2008 −6 %, 2022 −4 %), so the filter mostly removes good trades.
+5. **The 2 % stop is again worse than 1 %**, and the stock's own 50-day filter again adds nothing.
+6. **None of these beats buy-and-hold on return** (S&P 500 TR 10.1 %, equal-weight top 100 12.8 %). Their value is the low drawdown at low exposure. Because the 3-month book is only 40-55 % invested, it combines well with another strategy (e.g. the index/sector MACD book) on the same capital. Alternatively, size it up about 1.5× to reach index-like return with roughly −35 to −40 % drawdown; that is an estimate, not simulated.
+7. **Current state (2026-11-03):** the S&P 500 (7,569) is **1.6 % below its 50-day average (7,693)**, so the 50-day filter is **OFF**: no new buys or re-entries until the S&P closes above it. The asked 10-stock book holds TMO (+19.9 %), MA (+9.7 %) and PYPL (+2.9 %) until their 3-month exits (mid/late November). DASH, MSFT and CRM are stopped out and wait for the filter. These are backtest model states, not investment advice.
+
+Reproduce: `python scripts/stocks_ma50_study.py && python scripts/stocks_ma50_charts.py`.
+
+---
+
 ## 100 single US stocks: S&P 500 (or own-stock) 100-day filter + weekly-MACD signal + 1-2 % stop
 
 Scripts: `scripts/stocks_regime_study.py` and `scripts/stocks_regime_charts.py`; results in `results/stocks_regime/`.
@@ -796,6 +863,8 @@ scripts/
                    MACD long only when the S&P 500 is above its 100-day average (+ exits, re-entry, 50/200d) -> results/macd_regime/
   stocks_regime_study.py / stocks_regime_charts.py
                    100 single stocks (point-in-time and today's top 100): S&P or own-stock 100-day filter + MACD + 1-2 % stop -> results/stocks_regime/
+  stocks_ma50_study.py / stocks_ma50_charts.py
+                   same with the S&P 50-day filter and a 3-month hold (filter x hold x stop grid) -> results/stocks_ma50/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py
