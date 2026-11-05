@@ -30,6 +30,7 @@ ax = fig.add_subplot(gs[0, 0])
 lines = [("PIT_no_filter_no_stop_10", MUTED, "-", "MACD only, 10 stocks", stat("no filter, no stop", 10)),
          ("PIT_SP_filter_1pct_stop_10", "#2a78d6", "-", "S&P>100d + 1% stop, 10 stocks", stat("S&P filter, 1% stop", 10)),
          ("PIT_SP_filter_1pct_stop_20", "#1baf7a", "-", "S&P>100d + 1% stop, 20 stocks", stat("S&P filter, 1% stop", 20)),
+         ("PIT_stock_MA_filter_1pct_stop_10", "#8a5cd6", "-", "Stock>own 100d + 1% stop, 10 stocks", stat("stock MA filter, 1% stop", 10)),
          ("EW_top100_pit", "#eb6834", ":", "Equal-weight PIT top 100", B["EW_top100_pit"]),
          ("SP500TR", INK2, ":", "S&P 500 total return", B["SP500TR"])]
 for key, col, ls, lab, v in lines:
@@ -44,14 +45,15 @@ ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: 
 ax.set_ylabel("Equity, log (start \\$100k in 1997)")
 ax.xaxis.set_major_locator(mdates.YearLocator(4))
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-ax.set_title("Weekly-MACD long on point-in-time S&P 500 top-100 stocks, with the S&P 100-day filter", color=INK, loc="left", fontsize=10)
+ax.set_title("Weekly-MACD long on point-in-time S&P 500 top-100 stocks: S&P vs own-stock 100-day filter", color=INK, loc="left", fontsize=10)
 ax.legend(frameon=False, fontsize=8, loc="upper left")
 
 # right panel: max drawdown vs CAGR for every PIT variant
 ax2 = fig.add_subplot(gs[0, 1])
 cols = {3: "#eb6834", 10: "#2a78d6", 20: "#1baf7a"}
 mk = {"no filter, no stop": "o", "S&P filter, no stop": "s", "no filter, 1% stop": "^", "S&P filter, 1% stop": "D",
-      "S&P filter, 2% stop": "v"}
+      "S&P filter, 2% stop": "v", "stock MA filter, no stop": "P", "stock MA filter, 1% stop": "X", "stock MA filter, 2% stop": "h",
+      "S&P + stock MA filter, 1% stop": "p"}
 for _, r in V[V.universe == "PIT"].iterrows():
     ax2.scatter(-r["max_dd_%"], r["cagr_%"], color=cols[r["max_open"]], marker=mk[r["variant"]], s=46, edgecolor="white",
                 lw=0.6, zorder=3)
@@ -66,7 +68,7 @@ ax2.annotate("20 stocks,\nS&P filter + 1% stop", (-low["max_dd_%"], low["cagr_%"
              fontsize=8, color=INK2, arrowprops=dict(arrowstyle="-", color=MUTED))
 h1 = [plt.Line2D([], [], color=c, marker="o", ls="", label=f"max {m}") for m, c in cols.items()]
 h2 = [plt.Line2D([], [], color=MUTED, marker=m, ls="", label=v) for v, m in mk.items()]
-ax2.legend(handles=h1 + h2, frameon=False, fontsize=7.5, loc="upper left", ncol=1)
+ax2.legend(handles=h1 + h2, frameon=False, fontsize=7, loc="upper left", ncol=1, handletextpad=0.2, labelspacing=0.25)
 ax2.set_xlabel("Max drawdown, % (lower is better)")
 ax2.set_ylabel("CAGR, %")
 ax2.set_xlim(15, 70)

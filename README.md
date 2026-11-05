@@ -151,14 +151,15 @@ Reproduce: `python scripts/macd_regime_study.py && python scripts/macd_regime_ch
 
 ---
 
-## 100 single US stocks: S&P 500 100-day filter + weekly-MACD signal + 1-2 % stop
+## 100 single US stocks: S&P 500 (or own-stock) 100-day filter + weekly-MACD signal + 1-2 % stop
 
 Scripts: `scripts/stocks_regime_study.py` and `scripts/stocks_regime_charts.py`; results in `results/stocks_regime/`.
 
 Rules:
 * **Universe (main):** the point-in-time S&P 500 top 100 by trailing dollar volume, rebuilt every month (same data as the survivorship-bias section below). The reference case is today's top 100, which is survivorship-biased and runs from 1990.
 * **Entry:** a new weekly MACD up-phase in the stock (MACD and signal both turn > 0), bought at the next open **only if the S&P 500 closed above its 100-day average** on the signal day.
-* **Stop:** 1 % (or 2 %) below the entry price E0. After a stop, **re-buy at E0, but only while the S&P 500 is above its 100-day average**. This is the conditional re-entry, any number of times.
+* **Alternative filter:** the **stock's own 100-day average** replaces the S&P 500's. The stock must close above its own 100-day average on the signal day and before each re-entry. A third version requires both.
+* **Stop:** 1 % (or 2 %) below the entry price E0. After a stop, **re-buy at E0, but only while the filter is on**. This is the conditional re-entry, any number of times.
 * **Exit:** the stock's weekly MACD < 0 (sell at the next open) or after 1 year.
 * **Portfolio:** max 3 / 10 / 20 stocks at once, 1/N of equity each, cash-capped (no leverage), compounding, 3 bps per side. When several signals appear on the same day, the strongest MACD (MACD/price) gets the slot.
 
@@ -169,6 +170,10 @@ Rules:
 | + 1 % stop & re-entry (no filter) | **9.1 %** · −46 % · 0.53 | 6.8 % · −45 % · 0.53 | 8.0 % · −36 % · **0.67** |
 | **+ S&P filter + 1 % stop, conditional re-entry** | 6.3 % · −50 % · 0.41 | **8.4 % · −34 % · 0.66** (IS 6.3 / OOS 10.8) | 6.7 % · **−24 %** · 0.61 |
 | + S&P filter + 2 % stop, conditional re-entry | 5.8 % · −50 % · 0.39 | 7.8 % · −36 % · 0.61 | 6.5 % · −26 % · 0.59 |
+| + **stock > its own 100-day avg** filter, no stop | 6.2 % · −64 % · 0.37 | 6.0 % · −45 % · 0.42 | 8.1 % · −42 % · 0.58 |
+| + **own-stock filter + 1 % stop**, conditional re-entry | 6.1 % · −56 % · 0.40 | 5.6 % · −35 % · 0.46 | 7.5 % · −34 % · 0.64 |
+| + own-stock filter + 2 % stop, conditional re-entry | 4.9 % · −62 % · 0.34 | 4.6 % · −41 % · 0.39 | 6.7 % · −39 % · 0.58 |
+| + S&P **and** own-stock filter + 1 % stop | 5.0 % · −51 % · 0.35 | 8.1 % · −35 % · 0.64 | 6.5 % · −24 % · 0.60 |
 | *Equal-weight buy & hold of the PIT top 100* | | *12.8 % · −58 % · 0.67* | |
 | *S&P 500 total return* | | *10.1 % · −55 % · 0.60* | |
 
@@ -182,6 +187,10 @@ Each cell is CAGR · max drawdown · Sharpe.
 | **10 stocks, S&P filter + 1 % stop** | 6.9 % (6.3 to 7.9) | **−35 % (−40 to −31)** | **0.58** |
 | 20 stocks, MACD only | 7.8 % (7.0 to 8.5) | −42 % (−44 to −40) | 0.57 |
 | **20 stocks, S&P filter + 1 % stop** | 6.7 % (6.3 to 7.0) | **−26 % (−28 to −24)** | **0.62** |
+| 10 stocks, own-stock filter + 1 % stop | 6.1 % (5.2 to 7.4) | −38 % (−42 to −33) | 0.50 |
+| 20 stocks, own-stock filter + 1 % stop | 7.2 % (6.8 to 7.7) | −32 % (−34 to −29) | 0.63 |
+| 10 stocks, S&P + own-stock filter + 1 % stop | 6.7 % (5.8 to 7.5) | −35 % (−39 to −30) | 0.57 |
+| 20 stocks, S&P + own-stock filter + 1 % stop | 6.4 % (6.0 to 6.8) | −27 % (−28 to −24) | 0.60 |
 
 So the **drawdown cut is robust** (−11 to −16 points in every draw), and Sharpe is a bit better. **The return gain is not**: on average the filter + stop costs 0.5-1 %/yr, and the 8.4 % headline sits at the lucky end of the range.
 
@@ -191,6 +200,8 @@ So the **drawdown cut is robust** (−11 to −16 points in every draw), and Sha
 | 1 % stop, no filter | 24.5 % · −51 % | 22.1 % · −39 % | 18.8 % · −26 % |
 | S&P filter + 1 % stop | 18.9 % · −43 % | 16.6 % · −23 % | 15.3 % · −18 % |
 | S&P filter + 2 % stop | 18.0 % · −47 % | 15.9 % · −26 % | 14.7 % · −22 % |
+| Own-stock filter + 1 % stop | 24.7 % · −50 % | 20.2 % · −40 % | 17.7 % · −28 % |
+| S&P + own-stock filter + 1 % stop | 17.5 % · −49 % | 15.7 % · −24 % | 15.1 % · −19 % |
 
 Selected calendar years (point-in-time, max 10 unless noted):
 
@@ -213,7 +224,8 @@ Selected calendar years (point-in-time, max 10 unless noted):
 3. **With 3 stocks the filter hurts** (4.5-6.3 %/yr, DD −50 to −65 %). Three positions are too few: a handful of trades decides the result. The earlier random-pick test already showed that 3-stock books range from 2 to 10 %/yr on luck alone.
 4. **1 % beats 2 %** in every case, by 0.2-0.7 %/yr with a similar or smaller drawdown. On stocks a campaign is stopped out on average about 4 times (1 % stop) or 2.6 times (2 % stop), and the stop + re-entry works as a "be in only when price is above my entry" rule.
 5. **It still does not beat buying and holding the index on return.** 8.4 %/yr is below the S&P 500 TR (10.1 %) and the equal-weight top 100 (12.8 %). The money goes back in the strong rebound years: 2009 +17 % vs +54 % for EW, and 2023-25 also lags. What you get is **half the index drawdown at a similar Sharpe** (0.66 vs 0.60-0.67). Use it as a risk-controlled stock book, not as an alpha engine. On the biased today's-100 universe the filter also lowers CAGR (22.1 → 16.6 % at max 10) while halving the drawdown (−39 → −23 %). It is the same trade-off.
-6. **Current state (2026-11-03):** the S&P 500 is 0.7 % below its 100-day average, so **the filter is OFF: no new stock buys and no re-entries after stops** until the S&P closes back above about 7,620. The 10-stock book still holds MRK (+45.8 %), PM (+20.8 %), V (+16.1 %), CRWD (+14.5 %), ETN (−11.6 %) and UNH (−8.8 %) under their own 1 % stop / MACD / 1-year rules. VZ, HOOD and DASH are stopped out and wait for the S&P to recover before re-entry at their entry price. These are backtest model states, not investment advice.
+6. **The stock's own 100-day average is the wrong filter: it adds nothing over the 1 % stop alone.** 95 % of the MACD signals already have the stock above its own 100-day average, because a fresh weekly MACD up-phase almost always means the price has recovered above it. So the entry filter removes only 5 % of signals (trades at max 20: 983 → 947). The S&P filter removes 17 %. With the 1 % stop, the own-stock filter gives 5.6 % / −35 % / Sharpe 0.46 at 10 stocks (random-pick mean 6.1 % / −38 %) and 7.5 % / −34 % / 0.64 at 20 stocks. Those are about the same as the 1 % stop with no filter (6.8 % / −45 % and 8.0 % / −36 %) and clearly worse than the S&P filter on drawdown (−24 % at 20 stocks). The reason is that **the S&P filter carries market-level information a single stock doesn't have.** In a bear market (2001-02, 2008) many stocks still start new MACD up-phases above their own average and then fail. The S&P filter skips those trades; the own-stock filter takes them. Using both is no better than the S&P alone (8.1 % / −35 % at 10 stocks, 6.5 % / −24 % at 20). **Keep the S&P 500 filter; drop the own-stock MA filter.**
+7. **Current state (2026-11-03):** the S&P 500 is 0.7 % below its 100-day average, so **the filter is OFF: no new stock buys and no re-entries after stops** until the S&P closes back above about 7,620. The 10-stock book still holds MRK (+45.8 %), PM (+20.8 %), V (+16.1 %), CRWD (+14.5 %), ETN (−11.6 %) and UNH (−8.8 %) under their own 1 % stop / MACD / 1-year rules. VZ, HOOD and DASH are stopped out and wait for the S&P to recover before re-entry at their entry price. With the own-stock filter the book would differ: it holds MRK, PM, JPM, UNH, ABBV, PYPL and PLTR. VZ, DASH and NOW are stopped out and below their own 100-day average, so they cannot be re-bought yet. These are backtest model states, not investment advice.
 
 Reproduce: `python scripts/stocks_regime_study.py && python scripts/stocks_regime_charts.py`.
 
@@ -783,7 +795,7 @@ scripts/
   macd_regime_study.py / macd_regime_charts.py
                    MACD long only when the S&P 500 is above its 100-day average (+ exits, re-entry, 50/200d) -> results/macd_regime/
   stocks_regime_study.py / stocks_regime_charts.py
-                   100 single stocks (point-in-time and today's top 100): S&P 100-day filter + MACD + 1-2 % stop -> results/stocks_regime/
+                   100 single stocks (point-in-time and today's top 100): S&P or own-stock 100-day filter + MACD + 1-2 % stop -> results/stocks_regime/
 strategy/grid.py   the grid engine (levels, LIFO units, starting size j0)
 strategy/macd_engine.py  campaign engine for the MACD strategy (base / 1 % stop + re-entry / ladder / pyramid, time + level TP)
 tests/test_engine.py

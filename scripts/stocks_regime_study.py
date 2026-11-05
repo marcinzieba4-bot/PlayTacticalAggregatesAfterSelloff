@@ -3,8 +3,9 @@
 Universe (main): the point-in-time S&P 500 top 100 by trailing dollar volume, rebuilt monthly
 (see sp500_pit_study.py; less survivorship bias). Reference: today's top 100 (us100_study.py).
 Rules: buy a new weekly MACD up-phase at the next open only if the S&P 500 closed above its
-100-day average; stop 1 % / 2 % below the entry, re-enter at the entry price only while the
-S&P 500 is above its average; exit when the stock's weekly MACD < 0 or after 1 year.
+100-day average (or: the stock itself above its own 100-day average, or both); stop 1 % / 2 %
+below the entry, re-enter at the entry price only while the same filter is on; exit when the
+stock's weekly MACD < 0 or after 1 year.
 N positions at once (3 / 10 / 20), 1/N of equity each, cash-capped, compounding, 3 bps/side.
 
 Usage:  python scripts/stocks_regime_study.py   -> results/stocks_regime/
@@ -77,25 +78,36 @@ def main():
     def prepare_regime(inst):
         for x in inst.values():
             x["reg_on"] = reg.reindex(x["idx"], method="ffill").fillna(False).to_numpy(dtype=bool)
+            c = pd.Series(x["C"], index=x["idx"])
+            m = c.rolling(100).mean()
+            x["own_on"] = ((c > m) & m.notna()).to_numpy(dtype=bool)   # the stock above its own 100-day average
+            x["both_on"] = x["reg_on"] & x["own_on"]
 
     def go(uni, inst, sig, cal, label, kw, filt, mo):
-        s = sig[[inst[r.ticker]["reg_on"][r.e - 1] for r in sig.itertuples()]] if filt else sig
+        s = sig[[inst[r.ticker][filt][r.e - 1] for r in sig.itertuples()]] if filt else sig
         for x in inst.values():
-            x["reentry_ok"] = x["reg_on"] if filt else None
+            x["reentry_ok"] = x[filt] if filt else None
             x["exit_flag"] = None
         mv.MAX_OPEN = mo
         res, camps = mv.run(inst, s.reset_index(drop=True), cal, kw, 365, None)
         st = mv.stats(res, camps)
         rows.append({"universe": uni, "variant": label, "max_open": mo, **st})
         keep[(uni, label, mo)] = (res, camps)
-        print(f"{uni:9s} {label:28s} max {mo:2d} | CAGR {st['cagr_%']:6.2f} (IS {st['cagr_IS_%']:6.2f} / OOS {st['cagr_OOS_%']:6.2f}) "
+        print(f"{uni:9s} {label:31s} max {mo:2d} | CAGR {st['cagr_%']:6.2f} (IS {st['cagr_IS_%']:6.2f} / OOS {st['cagr_OOS_%']:6.2f}) "
               f"DD {st['max_dd_%']:6.1f} Sharpe {st['sharpe']:.2f} inv {st['avg_invested_%']:3.0f}% camp {st['campaigns']} "
               f"win {st['win%']:.0f}% avg {st['avg_campaign_%']:.1f}% stops {st['avg_stops']:.1f}", flush=True)
 
-    variants = [("no filter, no stop", dict(mode="base"), False), ("S&P filter, no stop", dict(mode="base"), True),
-                ("no filter, 1% stop", dict(mode="sl_reentry", sl=0.01), False),
-                ("S&P filter, 1% stop", dict(mode="sl_reentry", sl=0.01), True),
-                ("S&P filter, 2% stop", dict(mode="sl_reentry", sl=0.02), True)]
+    # filter = None, or the per-day bool array checked at the signal close and before every re-entry:
+    #   reg_on  = S&P 500 above its 100-day average, own_on = the stock above its own 100-day average, both_on = both
+    sl1, sl2 = dict(mode="sl_reentry", sl=0.01), dict(mode="sl_reentry", sl=0.02)
+    variants = [("no filter, no stop", dict(mode="base"), None), ("S&P filter, no stop", dict(mode="base"), "reg_on"),
+                ("no filter, 1% stop", sl1, None),
+                ("S&P filter, 1% stop", sl1, "reg_on"),
+                ("S&P filter, 2% stop", sl2, "reg_on"),
+                ("stock MA filter, no stop", dict(mode="base"), "own_on"),
+                ("stock MA filter, 1% stop", sl1, "own_on"),
+                ("stock MA filter, 2% stop", sl2, "own_on"),
+                ("S&P + stock MA filter, 1% stop", sl1, "both_on")]
 
     # point-in-time universe
     inst, sig, cal = build_pit()
@@ -117,11 +129,11 @@ def main():
     rng = np.random.default_rng(7)
     for draw in range(20):
         s2 = sig.assign(strength=rng.random(len(sig))).sort_values(["entry_date", "strength"], ascending=[True, False])
-        for label, kw, filt in [variants[0], variants[3]]:
+        for label, kw, filt in [variants[0], variants[3], variants[6], variants[8]]:
             for mo in [10, 20]:
-                ss = s2[[inst[r.ticker]["reg_on"][r.e - 1] for r in s2.itertuples()]] if filt else s2
+                ss = s2[[inst[r.ticker][filt][r.e - 1] for r in s2.itertuples()]] if filt else s2
                 for x in inst.values():
-                    x["reentry_ok"] = x["reg_on"] if filt else None
+                    x["reentry_ok"] = x[filt] if filt else None
                     x["exit_flag"] = None
                 mv.MAX_OPEN = mo
                 st = mv.stats(*mv.run(inst, ss.reset_index(drop=True), cal, kw, 365, None))
@@ -155,9 +167,11 @@ def main():
                                 "cagr_mean_%": float(g["cagr_%"].mean())}
                                for (v, m), g in rnd.groupby(["variant", "max_open"])]}
     for key in [("PIT", "no filter, no stop", 10), ("PIT", "S&P filter, no stop", 10), ("PIT", "S&P filter, 1% stop", 10),
-                ("PIT", "S&P filter, 2% stop", 10), ("PIT", "S&P filter, 1% stop", 20), ("PIT", "S&P filter, 1% stop", 3)]:
+                ("PIT", "S&P filter, 2% stop", 10), ("PIT", "S&P filter, 1% stop", 20), ("PIT", "S&P filter, 1% stop", 3),
+                ("PIT", "stock MA filter, no stop", 10), ("PIT", "stock MA filter, 1% stop", 10), ("PIT", "stock MA filter, 1% stop", 20),
+                ("PIT", "S&P + stock MA filter, 1% stop", 10), ("PIT", "S&P + stock MA filter, 1% stop", 20)]:
         res, camps = keep[key]
-        name = f"{key[0]}_{key[1].replace(' ', '_').replace(',', '').replace('&', '').replace('%', 'pct')}_{key[2]}"
+        name = f"{key[0]}_{key[1].replace(' ', '_').replace(',', '').replace('&', '').replace('%', 'pct').replace('+', 'and')}_{key[2]}"
         res.to_csv(os.path.join(OUT, f"equity_{name}.csv"))
         summary["runs"][name] = {"key": key, "equity_weekly": [[d.date().isoformat(), round(float(v), 2)]
                                                                for d, v in res["equity"].resample("W-FRI").last().dropna().items()],
